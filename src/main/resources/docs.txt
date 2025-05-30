@@ -1,0 +1,19 @@
+
+HashTools CLI Documentation
+--------------------------
+HashTools is a command-line utility for generating and validating file hash metadata.
+It supports scanning directories, computing hashes, and writing results to a TSV meta file.
+
+Commands:
+  generate   - Scans a directory, computes hashes, and writes a .meta TSV file.
+               Options include thread count, batch size, output file, and MIME filters.
+  validate   - Validates a .meta file for correct format and content.
+
+Typical Usage:
+  hashtools generate /path/to/dir --output results.meta
+  hashtools validate results.meta
+
+Meta File Format:
+  The .meta file is a tab-separated file with columns for hash, timestamp, size, MIME type, and relative path.
+
+For more details, use --help with any command.
