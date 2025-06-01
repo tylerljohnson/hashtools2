@@ -60,16 +60,14 @@ java -jar hashtools2.jar --help
 
 The generated metadata file is a tab-separated values (TSV) file with the following columns:
 
-| Column Name | Type   | Description                                 |
-|-------------|--------|---------------------------------------------|
-| path        | String | Relative file path                          |
-| size        | Long   | File size in bytes                          |
-| hash        | String | Hash digest (algorithm depends on options)  |
-| mtime       | Long   | Last modified time (epoch millis)           |
-
-- The first line is a header with column names.
-- Each subsequent line represents a file entry.
-- Hash algorithm (e.g., SHA-256) is configurable via CLI options.
+| Column Name   | Type   | Description                                       |
+|---------------|--------|---------------------------------------------------|
+| hash          | String | SHA1 Hash digest (algorithm depends on options)   |
+| lastModified  | String | File last modified timestamp, yyyy-MM-ddThh:mm:ss |
+| size          | Long   | File size in bytes                                |
+| mimeType      | String | MIME type of the file                             |
+| basePath      | String | Full path to the base directory                   |
+| fileName      | String | Relative path (from the basePath) of the file     |
 
 ## Project Structure
 

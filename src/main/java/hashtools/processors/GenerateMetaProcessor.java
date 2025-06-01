@@ -18,8 +18,8 @@ public class GenerateMetaProcessor implements Processor {
     public static final int DEFAULT_QUEUE_SIZE   = 10_000;
     public static final int DEFAULT_BATCH_SIZE   =    500;
     private static final long   PROGRESS_INTERVAL_MS = 1_000;
-    private static final double MS_PER_SECOND       = 1_000.0;
-    private static final String TIMESTAMP_PATTERN   = "yyyy-MM-dd'T'HH:mm:ss";
+    private static final double MS_PER_SECOND        = 1_000.0;
+    private static final String TIMESTAMP_PATTERN    = "yyyy-MM-dd'T'HH:mm:ss";
     private static final DateTimeFormatter TIMESTAMP_FORMAT = DateTimeFormatter.ofPattern(TIMESTAMP_PATTERN);
 
     // ==== ANSI control codes ====
@@ -32,7 +32,7 @@ public class GenerateMetaProcessor implements Processor {
     private static final String DONE_FORMAT     = "\rDone. elapsed  %s, hashed %,d, skipped %,d, processed %.2f files/sec%n";
 
     // ==== poison pill marker ====
-    private static final MetaItem POISON_PILL = new MetaItem("", "", 0, "", "");
+    private static final MetaItem POISON_PILL = new MetaItem("", "", 0, "", "", "");
     public static final String META_EXTENSION = ".meta";
 
     // ==== instance fields ====
@@ -188,10 +188,11 @@ public class GenerateMetaProcessor implements Processor {
         try {
             String mimeType = tika.detect(file);
             String hash = DigestUtils.hash(file);
-            String lm = LocalDateTime.ofInstant(attrs.lastModifiedTime().toInstant(), ZoneId.systemDefault()).format(TIMESTAMP_FORMAT);
-            long size = attrs.size();
-            String rel= config.rootDir.relativize(file).toString();
-            queue.put(new MetaItem(hash, lm, size, mimeType, rel));
+            String lastModified = LocalDateTime.ofInstant(attrs.lastModifiedTime().toInstant(), ZoneId.systemDefault()).format(TIMESTAMP_FORMAT);
+            long sizeBytes = attrs.size();
+            String basePath = config.rootDir.toAbsolutePath().toString();
+            String relativePath = config.rootDir.relativize(file).toString();
+            queue.put(new MetaItem(hash, lastModified, sizeBytes, mimeType, basePath, relativePath));
         } catch (Exception e) {
             System.err.printf("ERROR processing %s: %s%n", file, e.getMessage());
         }

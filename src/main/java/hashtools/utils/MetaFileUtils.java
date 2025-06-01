@@ -8,7 +8,7 @@ import java.util.*;
 
 public class MetaFileUtils {
 
-    public static final int EXPECTED_META_PROPERTIES = 5;
+    public static final int EXPECTED_META_PROPERTIES = 6;
 
     private MetaFileUtils() {}
 
@@ -19,6 +19,7 @@ public class MetaFileUtils {
                 r.lastModified(),
                 String.valueOf(r.fileSize()),
                 r.mimeType(),
+                r.basePath(),
                 r.filePath());
     }
 
@@ -28,7 +29,7 @@ public class MetaFileUtils {
         if (parts.length != EXPECTED_META_PROPERTIES) {
             throw new IllegalArgumentException("Invalid TSV format: " + line);
         }
-        return new MetaItem(parts[0], parts[1], Long.parseLong(parts[2]), parts[3], parts[4]);
+        return new MetaItem(parts[0], parts[1], Long.parseLong(parts[2]), parts[3], parts[4], parts[5]);
     }
 
     // Reads a meta file from the given path and returns a list of FileItem objects.
@@ -51,7 +52,7 @@ public class MetaFileUtils {
                 if (parts.length != EXPECTED_META_PROPERTIES) {
                     throw new RuntimeException("Invalid meta file format: " + line);
                 }
-                MetaItem item = new MetaItem(parts[0], parts[1], Long.parseLong(parts[2]), parts[3], parts[4]);
+                MetaItem item = new MetaItem(parts[0], parts[1], Long.parseLong(parts[2]), parts[3], parts[4], parts[5]);
                 items.add(item);
             }
         } catch (IOException e) {

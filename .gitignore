@@ -17,3 +17,5 @@ target/
 
 ### Mac OS ###
 .DS_Store
+
+*.meta

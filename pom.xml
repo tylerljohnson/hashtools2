@@ -5,7 +5,7 @@
 
     <groupId>net.netgizmo</groupId>
     <artifactId>hashtools2</artifactId>
-    <version>1.0.0</version>
+    <version>1.1.0</version>
     <name>Hash tools</name>
     <description>Recursively computes SHA-1 hashes and other metad for files in a directory tree.</description>
     <url>https://github.com/netgizmo/hashtools2</url>
