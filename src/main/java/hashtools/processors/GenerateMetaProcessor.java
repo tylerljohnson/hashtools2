@@ -88,7 +88,7 @@ public class GenerateMetaProcessor implements Processor {
                     if (attrs.isRegularFile()) {
                         String mimeType = null;
                         try {
-                            mimeType = tika.detect(file);
+                            mimeType = tika.detect(file).split(";")[0].trim();
                         } catch (IOException e) {
                             System.err.printf("ERROR detecting MIME type for %s: %s%n", file, e.getMessage());
                         }
