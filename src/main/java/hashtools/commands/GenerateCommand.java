@@ -34,9 +34,8 @@ public class GenerateCommand implements Runnable {
             description = "Lines to batch per write (default: ${DEFAULT-VALUE})")
     private int batchSize = GenerateMetaProcessor.DEFAULT_BATCH_SIZE;
 
-    @Option(names = {"-o", "--output"},
-            description = "Output a .meta file, which is TSV with comments (default: <timestamp>.meta)")
-    private File outputFile;
+    @Option(names = {"-o", "--output"}, description = "Output file (use '-' for stdout)")
+    private String output;
 
     @Option(names = {"-i", "--include"},
             description = "Include files by MIME type (e.g., 'image', 'text'). Multiple filters can be specified.")
@@ -47,7 +46,7 @@ public class GenerateCommand implements Runnable {
         try {
             new GenerateMetaProcessor(
                     rootDir,
-                    outputFile,
+                    output,
                     threadCount,
                     queueSize,
                     batchSize,

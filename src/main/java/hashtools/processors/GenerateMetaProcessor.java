@@ -14,7 +14,6 @@ import java.util.concurrent.*;
 import java.util.concurrent.atomic.*;
 
 public class GenerateMetaProcessor implements Processor {
-    // ==== default values & patterns ====
     public static final int DEFAULT_QUEUE_SIZE   = 10_000;
     public static final int DEFAULT_BATCH_SIZE   =    500;
     private static final long   PROGRESS_INTERVAL_MS = 1_000;
@@ -22,20 +21,16 @@ public class GenerateMetaProcessor implements Processor {
     private static final String TIMESTAMP_PATTERN    = "yyyy-MM-dd'T'HH:mm:ss";
     private static final DateTimeFormatter TIMESTAMP_FORMAT = DateTimeFormatter.ofPattern(TIMESTAMP_PATTERN);
 
-    // ==== ANSI control codes ====
     private static final String ANSI_CARRIAGE_RETURN = "\r";
     private static final String ANSI_ERASE_LINE      = "\u001B[2K";
 
-    // ==== output formats ====
     private static final String STARTUP_FORMAT  = "Starting with %d threads, queue=%d, batch=%d.%n";
     private static final String PROGRESS_FORMAT = "Generating: %,d/%,d (%s) at %.2f f/s, ETA %s";
     private static final String DONE_FORMAT     = "\rDone. elapsed  %s, hashed %,d, skipped %,d, processed %.2f files/sec%n";
 
-    // ==== poison pill marker ====
     private static final MetaItem POISON_PILL = new MetaItem("", "", 0, "", "", "");
     public static final String META_EXTENSION = ".meta";
 
-    // ==== instance fields ====
     private final Config config;
     private BlockingQueue<MetaItem> queue;
     private ExecutorService hashingExecutor;
@@ -49,20 +44,23 @@ public class GenerateMetaProcessor implements Processor {
 
     public GenerateMetaProcessor(
             File rootDir,
-            File outputFile,
+            String outputFilePath,
             int threadCount,
             int queueSize,
             int batchSize,
             boolean silent,
             Set<String> includeTypeFilter
     ) {
+        boolean toStdout = "-".equals(outputFilePath);
+        Path outputFile = (!toStdout && outputFilePath != null) ? Path.of(outputFilePath) : null;
         this.config = new Config(
                 rootDir.toPath(),
-                outputFile != null ? outputFile.toPath() : null,
+                outputFile,
+                toStdout,
                 threadCount,
                 queueSize,
                 batchSize,
-                silent,
+                silent || toStdout,
                 includeTypeFilter
         );
     }
@@ -78,20 +76,18 @@ public class GenerateMetaProcessor implements Processor {
         writerExecutor   = Executors.newSingleThreadExecutor();
         progressExecutor = Executors.newSingleThreadScheduledExecutor();
 
-        try (BufferedWriter writer = Files.newBufferedWriter(config.outputFile)) {
+        try (BufferedWriter writer = config.toStdout
+                ? new BufferedWriter(new OutputStreamWriter(System.out))
+                : Files.newBufferedWriter(config.outputFile)) {
+
             startWriter(writer);
-            if (!config.silent) startProgressReporter();
+            if (!config.silent && !config.toStdout) startProgressReporter();
 
             Files.walkFileTree(config.rootDir, new SimpleFileVisitor<>() {
                 @Override
                 public FileVisitResult visitFile(Path file, BasicFileAttributes attrs) {
                     if (attrs.isRegularFile()) {
-                        String mimeType = null;
-                        try {
-                           mimeType = Objects.toString(tika.detect(file), "").split(";")[0].trim();
-                        } catch (IOException e) {
-                            System.err.printf("ERROR detecting MIME type for %s: %s%n", file, e.getMessage());
-                        }
+                        String mimeType = detectMimeType(file);
                         String type = mimeType.split("/")[0];
                         if (config.includeMimeTypesFilters.isEmpty() || config.includeMimeTypesFilters.contains(type)) {
                             discoveredCount.incrementAndGet();
@@ -128,10 +124,18 @@ public class GenerateMetaProcessor implements Processor {
             System.err.printf("ERROR: %s is not a directory.%n", config.rootDir);
             System.exit(1);
         }
-        if (config.outputFile == null) {
-            String defaultName = LocalDateTime.now().format(TIMESTAMP_FORMAT) + META_EXTENSION;
-            // default to current working directory
-            config.outputFile = Path.of(defaultName);
+        if (config.outputFile == null && !config.toStdout) {
+            config.outputFile = defaultOutputPath();
+        }
+    }
+
+    private String detectMimeType(Path file) {
+        try {
+            String full = tika.detect(file);
+            return full != null ? full.split(";")[0].trim() : "application/octet-stream";
+        } catch (IOException e) {
+            System.err.printf("ERROR detecting MIME type for %s: %s%n", file, e.getMessage());
+            return "application/octet-stream";
         }
     }
 
@@ -144,7 +148,10 @@ public class GenerateMetaProcessor implements Processor {
     }
 
     private void printStartupSummary() {
-        //System.out.printf(STARTUP_FORMAT, config.threadCount, config.queueSize, config.batchSize);
+        System.out.printf(STARTUP_FORMAT, config.threadCount, config.queueSize, config.batchSize);
+        if (!config.toStdout && config.outputFile != null) {
+            System.out.printf("Output file: %s%n", config.outputFile);
+        }
     }
 
     private void startWriter(BufferedWriter writer) {
@@ -161,6 +168,7 @@ public class GenerateMetaProcessor implements Processor {
                     processedCount.incrementAndGet();
                 }
                 flushBatch(writer, batch);
+                writer.flush();
             } catch (Exception e) {
                 System.err.printf("ERROR writing results: %s%n", e.getMessage());
             }
@@ -186,7 +194,7 @@ public class GenerateMetaProcessor implements Processor {
 
     private void processFile(Path file, BasicFileAttributes attrs) {
         try {
-            String mimeType = tika.detect(file);
+            String mimeType = detectMimeType(file);
             String hash = DigestUtils.hash(file);
             String lastModified = LocalDateTime.ofInstant(attrs.lastModifiedTime().toInstant(), ZoneId.systemDefault()).format(TIMESTAMP_FORMAT);
             long sizeBytes = attrs.size();
@@ -210,24 +218,29 @@ public class GenerateMetaProcessor implements Processor {
         System.out.printf(DONE_FORMAT, formatHMS(totalMs), total, skippedCount.get(), avg);
     }
 
+    private static Path defaultOutputPath() {
+        return Path.of(LocalDateTime.now().format(TIMESTAMP_FORMAT) + META_EXTENSION);
+    }
+
     private String formatHMS(long ms) {
         long s = ms/1000;
         return String.format("%d:%02d:%02d", s/3600, (s%3600)/60, s%60);
     }
 
-    // Helper to bundle configuration paths and flags
     private static class Config {
         Path rootDir;
         Path outputFile;
+        boolean toStdout;
         int threadCount; int queueSize; int batchSize;
         boolean silent;
         Set<String> includeMimeTypesFilters;
 
-        Config(Path rootDir, Path outputFile,
+        Config(Path rootDir, Path outputFile, boolean toStdout,
                int threadCount, int queueSize,
                int batchSize, boolean silent, Set<String> includeFilters) {
             this.rootDir = rootDir;
             this.outputFile = outputFile;
+            this.toStdout = toStdout;
             this.threadCount = threadCount;
             this.queueSize = queueSize;
             this.batchSize = batchSize;
@@ -236,7 +249,7 @@ public class GenerateMetaProcessor implements Processor {
         }
 
         static Config cwd() {
-            return new Config(null, Path.of("."), 0,0,0,false, Collections.emptySet());
+            return new Config(null, Path.of("."), false, 0,0,0,false, Collections.emptySet());
         }
     }
 }
