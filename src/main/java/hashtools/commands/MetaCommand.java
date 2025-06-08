@@ -9,6 +9,7 @@ import picocli.CommandLine.*;
             MetaValidateSubCommand.class,
             MetaSummarySubCommand.class,
             MetaSplitSubCommand.class,
+            MetaIntersectSubCommand.class
         },
         mixinStandardHelpOptions = true,
         usageHelpAutoWidth = true
