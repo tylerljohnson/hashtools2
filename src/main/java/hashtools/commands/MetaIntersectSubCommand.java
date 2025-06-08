@@ -4,39 +4,50 @@ import hashtools.processors.*;
 import picocli.CommandLine.*;
 
 import java.io.*;
-import java.nio.charset.*;
+import java.nio.file.*;
 import java.util.*;
 
 @Command(
         name = "intersect",
-        description = "Find common entries by hash from two meta files",
+        description = "Find items common to two .meta files",
         mixinStandardHelpOptions = true
 )
 public class MetaIntersectSubCommand implements Runnable {
 
-    @Parameters(arity = "2", paramLabel = "<meta-files>", description = "Exactly two .meta files to compare")
-    private List<File> inputFiles;
+    @Parameters(index = "0", paramLabel = "FILE1", description = "First meta file")
+    private File file1;
 
-    @Option(names = {"-o", "--output"}, paramLabel = "<output>", description = "Path to output meta file, or '-' for stdout", defaultValue = "-")
-    private String output;
+    @Parameters(index = "1", paramLabel = "FILE2", description = "Second meta file")
+    private File file2;
 
-    @Option(names = "--mime-filter", paramLabel = "<type>", split = ",", description = "Filter by MIME major types (e.g. image, video)")
+    @Option(names = {"-o", "--output"}, description = "Output file (use '-' for stdout)", defaultValue = "-")
+    private File output;
+
+    @Option(names = {"--view"}, negatable = true, description = "View matching images using CLI viewer")
+    private boolean view = false;
+
+    @Option(names = "--mime-filter", split = ",", description = "Restrict to specific major MIME types")
     private Set<String> mimeFilter;
 
     @Override
     public void run() {
-        try (BufferedWriter writer = new BufferedWriter(new OutputStreamWriter(
-                "-".equals(output) ? System.out : new FileOutputStream(output), StandardCharsets.UTF_8))) {
-
-            MetaIntersectProcessor processor = new MetaIntersectProcessor(
-                    inputFiles.get(0),
-                    inputFiles.get(1),
-                    writer,
-                    mimeFilter
-            );
-            processor.run();
+        try (BufferedWriter writer = view ? createNullWriter() : createWriter(output)) {
+            new MetaIntersectProcessor(file1, file2, writer, mimeFilter, view).run();
         } catch (IOException e) {
             System.err.printf("ERROR: %s%n", e.getMessage());
+            System.exit(1);
         }
+    }
+
+    private BufferedWriter createWriter(File outputFile) throws IOException {
+        if (outputFile.getPath().equals("-")) {
+            return new BufferedWriter(new OutputStreamWriter(System.out));
+        } else {
+            return Files.newBufferedWriter(outputFile.toPath());
+        }
+    }
+
+    private BufferedWriter createNullWriter() {
+        return new BufferedWriter(Writer.nullWriter());
     }
 }
