@@ -8,6 +8,7 @@ import picocli.CommandLine.*;
         subcommands = {
             MetaValidateSubCommand.class,
             MetaSummarySubCommand.class,
+            MetaSplitSubCommand.class,
         },
         mixinStandardHelpOptions = true,
         usageHelpAutoWidth = true
