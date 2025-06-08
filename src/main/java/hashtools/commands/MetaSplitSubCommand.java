@@ -16,7 +16,7 @@ public class MetaSplitSubCommand implements Runnable {
     @Parameters(index = "0", description = "The input .meta file")
     private File inputFile;
 
-    @Option(names = {"-o", "--out-dir"}, description = "Output directory (default: current directory)")
+    @Option(names = {"-o", "--output"}, description = "Output directory (default: current directory)")
     private File outDir = new File(".");
 
     @Option(names = {"-p", "--prefix"}, description = "Prefix for output files")
