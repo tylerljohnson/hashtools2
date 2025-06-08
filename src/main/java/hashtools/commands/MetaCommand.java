@@ -7,6 +7,7 @@ import picocli.CommandLine.*;
         description = "Meta file tools: post-process, inspect, filter, and validate .meta files",
         subcommands = {
             MetaValidateSubCommand.class,
+            MetaSummarySubCommand.class,
         },
         mixinStandardHelpOptions = true,
         usageHelpAutoWidth = true
