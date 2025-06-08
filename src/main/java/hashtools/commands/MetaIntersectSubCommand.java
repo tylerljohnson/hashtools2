@@ -23,7 +23,7 @@ public class MetaIntersectSubCommand implements Runnable {
     @Option(names = {"-o", "--output"}, description = "Output file (use '-' for stdout)", defaultValue = "-")
     private File output;
 
-    @Option(names = {"--view"}, negatable = true, description = "View matching images using CLI viewer")
+    @Option(names = {"--view"}, negatable = true, description = "View matching images using CLI viewers")
     private boolean view = false;
 
     @Option(names = "--mime-filter", split = ",", description = "Restrict to specific major MIME types")

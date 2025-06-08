@@ -4,6 +4,8 @@ import hashtools.models.*;
 
 import java.io.*;
 import java.nio.file.*;
+import java.time.*;
+import java.time.format.*;
 import java.util.*;
 
 public class MetaFileUtils {
@@ -59,5 +61,29 @@ public class MetaFileUtils {
             throw new RuntimeException("Error reading meta file: " + e.getMessage(), e);
         }
         return items;
+    }
+
+    private static final DateTimeFormatter TIMESTAMP_FORMAT = DateTimeFormatter.ofPattern("yyyyMMdd-HHmmss");
+
+    public static Path backupMetaFile(File file) throws IOException {
+        if (file == null || !file.exists()) {
+            throw new IllegalArgumentException("Cannot backup: file is null or does not exist.");
+        }
+
+        Path originalPath = file.toPath();
+        String timestamp = LocalDateTime.now().format(TIMESTAMP_FORMAT);
+        String backupName = originalPath.getFileName().toString() + "." + timestamp + ".bak";
+
+        Path backupPath = originalPath.resolveSibling(backupName);
+        return Files.copy(originalPath, backupPath, StandardCopyOption.COPY_ATTRIBUTES);
+    }
+
+    public static void writeMetaFile(Path outputPath, List<MetaItem> items) throws IOException {
+        try (BufferedWriter writer = Files.newBufferedWriter(outputPath)) {
+            for (MetaItem item : items) {
+                writer.write(toTsvString(item));
+                writer.newLine();
+            }
+        }
     }
 }

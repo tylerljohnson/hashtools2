@@ -2,9 +2,9 @@ package hashtools.processors;
 
 import hashtools.models.*;
 import hashtools.utils.*;
+import hashtools.viewers.*;
 
 import java.io.*;
-import java.nio.file.*;
 import java.util.*;
 import java.util.stream.*;
 
@@ -31,12 +31,12 @@ public class MetaIntersectProcessor implements Processor {
 
             List<MetaItem> intersection = computeIntersection(list1, list2);
 
-            Viewer viewer = view ? new MimeImageViewer() : new NoOpViewer();
+            MetaItemViewer metaItemViewer = view ? new ImageViewer() : new NoOpMetaItemViewer();
 
             for (MetaItem item : intersection) {
                 writer.write(MetaFileUtils.toTsvString(item));
                 writer.newLine();
-                viewer.view(item);
+                metaItemViewer.view(item);
             }
             writer.flush();
         } catch (IOException e) {
@@ -59,63 +59,4 @@ public class MetaIntersectProcessor implements Processor {
                 .collect(Collectors.toList());
     }
 
-    private interface Viewer {
-        void view(MetaItem item);
-    }
-
-    private static class NoOpViewer implements Viewer {
-        @Override
-        public void view(MetaItem item) {}
-    }
-
-    private static class MimeImageViewer implements Viewer {
-        @Override
-        public void view(MetaItem item) {
-            if (item.basePath() == null || item.filePath() == null) return;
-
-            List<String> command = buildCommand(item);
-            if (command == null) {
-                //System.err.printf("WARN: No viewer for MIME type %s%n", item.mimeType());
-                return;
-            }
-
-            executeCommand(command);
-        }
-
-        private List<String> buildCommand(MetaItem item) {
-            String mime = item.mimeType();
-            if (mime == null) return null;
-
-            String major = MimeUtils.getMajorType(mime);
-            switch (major) {
-                case "image":
-                    return buildImageCommand(item);
-                default:
-                    return null;
-            }
-        }
-
-        private List<String> buildImageCommand(MetaItem item) {
-            Path fullPath = Path.of(item.basePath(), item.filePath());
-            return List.of(
-                    "timg",
-//                    "--center",
-                    "--grid=1x5",
-                    String.format("--title=\"%%f (%%wx%%h)\""),
-                    fullPath.toString()
-            );
-        }
-
-        private void executeCommand(List<String> command) {
-            ProcessBuilder pb = new ProcessBuilder(command);
-            pb.inheritIO();
-            try {
-                pb.start().waitFor();
-            } catch (IOException e) {
-                System.err.printf("ERROR: Failed to run viewer command '%s': %s%n", String.join(" ", command), e.getMessage());
-            } catch (InterruptedException e) {
-                Thread.currentThread().interrupt();
-            }
-        }
-    }
 }
