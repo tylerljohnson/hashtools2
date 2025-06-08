@@ -3,7 +3,7 @@ package hashtools.commands;
 import hashtools.processors.*;
 import picocli.CommandLine.*;
 
-import java.io.File;
+import java.io.*;
 import java.util.*;
 
 @Command(
