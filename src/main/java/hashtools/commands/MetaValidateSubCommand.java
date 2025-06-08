@@ -4,25 +4,23 @@ import hashtools.processors.*;
 import picocli.CommandLine.*;
 
 import java.io.*;
+import java.util.*;
 
 @Command(
         name = "validate",
-        description = "Validate a meta file",
+        description = "Validate .meta files for format and column types.",
         mixinStandardHelpOptions = true
 )
 public class MetaValidateSubCommand implements Runnable {
 
-    @Parameters(paramLabel = "<file>", description = "The meta file to validate")
-    File file;
+    @Parameters(arity = "1..*", paramLabel = "FILES", description = ".meta file(s) to validate")
+    private List<File> metaFiles;
 
     @Override
     public void run() {
-        try {
-            new ValidateMetaFileProcessor(file).run();
-
-            System.out.println("Meta file is valid: " + file.getAbsolutePath());
-        } catch (Exception e) {
-            throw new RuntimeException("Unable to hash file: " + e.getMessage(), e);
+        boolean success = MetaValidateProcessor.validate(metaFiles);
+        if (!success) {
+            System.exit(1);
         }
     }
 }

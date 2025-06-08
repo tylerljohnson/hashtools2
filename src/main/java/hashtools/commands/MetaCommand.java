@@ -1,19 +1,23 @@
 package hashtools.commands;
 
-import picocli.*;
 import picocli.CommandLine.*;
 
 @Command(
         name = "meta",
-        description = "Commands to manage meta files.",
-        mixinStandardHelpOptions = true,
+        description = "Meta file tools: post-process, inspect, filter, and validate .meta files",
         subcommands = {
             MetaValidateSubCommand.class,
-        }
+        },
+        mixinStandardHelpOptions = true,
+        usageHelpAutoWidth = true
 )
 public class MetaCommand implements Runnable {
+
+    @Spec
+    Model.CommandSpec spec;
+
     @Override
     public void run() {
-        CommandLine.usage(this, System.out);
+        spec.commandLine().usage(System.out);
     }
 }
