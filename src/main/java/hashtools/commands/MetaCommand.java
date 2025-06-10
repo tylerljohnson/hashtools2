@@ -1,5 +1,6 @@
 package hashtools.commands;
 
+import hashtools.processors.*;
 import picocli.CommandLine.*;
 
 @Command(
@@ -9,7 +10,8 @@ import picocli.CommandLine.*;
             MetaValidateSubCommand.class,
             MetaSummarySubCommand.class,
             MetaSplitSubCommand.class,
-            MetaIntersectSubCommand.class
+            MetaIntersectSubCommand.class,
+            MetaPurgeSubCommand.class,
         },
         mixinStandardHelpOptions = true,
         usageHelpAutoWidth = true
