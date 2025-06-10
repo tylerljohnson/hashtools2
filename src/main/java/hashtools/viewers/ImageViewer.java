@@ -38,10 +38,9 @@ public class ImageViewer implements MetaItemViewer {
         Path fullPath = Path.of(item.basePath(), item.filePath());
         return List.of(
                 "timg",
-//                    "--center",
                 "--grid=1x5",
                 "--loops=1",
-                String.format("--title=\"%%f (%%wx%%h)\""),
+                "--title=(%wx%h)",
                 fullPath.toString()
         );
     }
