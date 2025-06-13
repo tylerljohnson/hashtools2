@@ -110,4 +110,5 @@ public class MetaSplitProcessor implements Processor {
         int dot = name.lastIndexOf('.');
         return (dot > 0) ? name.substring(0, dot) : name;
     }
+
 }

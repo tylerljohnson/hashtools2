@@ -9,14 +9,14 @@ import java.io.*;
 import java.util.concurrent.*;
 
 @Command(
-        name = "hashtools",
-        description = "A CLI tool for generating file metadata.",
-        mixinStandardHelpOptions = true,
-        versionProvider = ManifestVersionProvider.class,
-        subcommands = {
-            GenerateCommand.class,
-            MetaCommand.class,
-        }
+    name = "hashtools",
+    description = "A CLI tool for generating file metadata.",
+    mixinStandardHelpOptions = true,
+    versionProvider = ManifestVersionProvider.class,
+    subcommands = {
+        GenerateCommand.class,
+        MetaCommand.class,
+    }
 )
 public class MainCli implements Callable<Integer> {
 
@@ -76,5 +76,5 @@ public class MainCli implements Callable<Integer> {
             return cmd.getCommandSpec().exitCodeOnExecutionException();
         }
     }
-}
 
+}

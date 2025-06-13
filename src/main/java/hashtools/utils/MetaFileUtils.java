@@ -17,12 +17,12 @@ public class MetaFileUtils {
     // Converts a FileItem to a TSV formatted string.
     public static String toTsvString(MetaItem r) {
         return String.join("\t",
-                r.hash(),
-                r.lastModified(),
-                String.valueOf(r.fileSize()),
-                r.mimeType(),
-                r.basePath(),
-                r.filePath());
+            r.hash(),
+            r.lastModified(),
+            String.valueOf(r.fileSize()),
+            r.mimeType(),
+            r.basePath(),
+            r.filePath());
     }
 
     // Parses a TSV formatted string into a FileItem.
@@ -86,4 +86,5 @@ public class MetaFileUtils {
             }
         }
     }
+
 }

@@ -8,9 +8,9 @@ import java.nio.file.*;
 import java.util.*;
 
 @Command(
-        name = "intersect",
-        description = "Find items common to two .meta files",
-        mixinStandardHelpOptions = true
+    name = "intersect",
+    description = "Find items common to two .meta files",
+    mixinStandardHelpOptions = true
 )
 public class MetaIntersectSubCommand implements Runnable {
 

@@ -7,9 +7,9 @@ import java.io.*;
 import java.util.*;
 
 @Command(
-        name = "split",
-        description = "Split .meta file by MIME type into separate files.",
-        mixinStandardHelpOptions = true
+    name = "split",
+    description = "Split .meta file by MIME type into separate files.",
+    mixinStandardHelpOptions = true
 )
 public class MetaSplitSubCommand implements Runnable {
 
@@ -33,4 +33,5 @@ public class MetaSplitSubCommand implements Runnable {
         Processor processor = new MetaSplitProcessor(inputFile, outDir, prefix, mimeFilter, majorType);
         processor.run();
     }
+
 }

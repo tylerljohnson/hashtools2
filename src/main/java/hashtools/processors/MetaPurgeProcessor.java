@@ -106,4 +106,5 @@ public class MetaPurgeProcessor implements Processor {
             System.err.printf("Failed to delete %s: %s%n", item.filePath(), e.getMessage());
         }
     }
+
 }

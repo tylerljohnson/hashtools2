@@ -79,4 +79,5 @@ public class MetaValidateProcessor implements Processor {
     private void printError(File file, int lineNum, String message) {
         System.err.printf("ERROR : %s : line %d : %s%n", file.getName(), lineNum, message);
     }
+
 }

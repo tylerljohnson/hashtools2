@@ -7,9 +7,9 @@ import java.io.*;
 import java.util.*;
 
 @Command(
-        name = "summary",
-        description = "Generate a summary report of one or more .meta files.",
-        mixinStandardHelpOptions = true
+    name = "summary",
+    description = "Generate a summary report of one or more .meta files.",
+    mixinStandardHelpOptions = true
 )
 public class MetaSummarySubCommand implements Runnable {
 
@@ -25,4 +25,5 @@ public class MetaSummarySubCommand implements Runnable {
         MetaSummaryProcessor processor = new MetaSummaryProcessor(metaFiles);
         processor.run();
     }
+
 }

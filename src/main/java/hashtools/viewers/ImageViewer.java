@@ -37,11 +37,11 @@ public class ImageViewer implements MetaItemViewer {
     private List<String> buildImageCommand(MetaItem item) {
         Path fullPath = Path.of(item.basePath(), item.filePath());
         return List.of(
-                "timg",
-                "--grid=1x5",
-                "--loops=1",
-                "--title=(%wx%h)",
-                fullPath.toString()
+            "timg",
+            "--grid=1x5",
+            "--loops=1",
+            "--title=(%wx%h)",
+            fullPath.toString()
         );
     }
 
@@ -56,4 +56,5 @@ public class ImageViewer implements MetaItemViewer {
             Thread.currentThread().interrupt();
         }
     }
+
 }

@@ -125,4 +125,5 @@ public class MetaSummaryProcessor implements Processor {
     private void printError(String file, int line, String message) {
         System.err.printf("ERROR : %s : line %d : %s%n", file, line, message);
     }
+
 }

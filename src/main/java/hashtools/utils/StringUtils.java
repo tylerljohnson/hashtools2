@@ -6,4 +6,5 @@ public class StringUtils {
     public static String getOrDefault(String value, String def) {
         return value != null ? value : def;
     }
+
 }

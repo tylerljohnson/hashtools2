@@ -16,10 +16,8 @@ import picocli.CommandLine.*;
         usageHelpAutoWidth = true
 )
 public class MetaCommand implements Runnable {
-
     @Spec
     Model.CommandSpec spec;
-
     @Override
     public void run() {
         spec.commandLine().usage(System.out);

@@ -24,7 +24,7 @@ public class GenerateCommand implements Runnable {
 
     @Option(names = {"-t", "--threads"},
             description = "Number of threads (default: ${DEFAULT-VALUE})")
-    private int threadCount = Runtime.getRuntime().availableProcessors();
+    private int threadCount = 2;
 
     @Option(names = {"-q", "--queue-size"},
             description = "Queue capacity for backpressure (default: ${DEFAULT-VALUE})")

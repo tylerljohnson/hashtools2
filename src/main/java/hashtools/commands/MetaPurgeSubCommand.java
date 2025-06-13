@@ -7,9 +7,9 @@ import java.io.*;
 import java.util.*;
 
 @Command(
-        name = "purge",
-        description = "Find items in target .meta file matching reference and optionally delete their files",
-        mixinStandardHelpOptions = true
+    name = "purge",
+    description = "Find items in target .meta file matching reference and optionally delete their files",
+    mixinStandardHelpOptions = true
 )
 public class MetaPurgeSubCommand implements Runnable {
 
@@ -35,4 +35,5 @@ public class MetaPurgeSubCommand implements Runnable {
     public void run() {
         new MetaPurgeProcessor(referenceFile, targetFile, delete, view, simple, mimeFilter).run();
     }
+
 }

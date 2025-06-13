@@ -7,9 +7,9 @@ import java.io.*;
 import java.util.*;
 
 @Command(
-        name = "validate",
-        description = "Validate .meta files for format and column types.",
-        mixinStandardHelpOptions = true
+    name = "validate",
+    description = "Validate .meta files for format and column types.",
+    mixinStandardHelpOptions = true
 )
 public class MetaValidateSubCommand implements Runnable {
 
@@ -23,4 +23,5 @@ public class MetaValidateSubCommand implements Runnable {
             System.exit(1);
         }
     }
+
 }

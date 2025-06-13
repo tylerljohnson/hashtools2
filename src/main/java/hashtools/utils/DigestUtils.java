@@ -45,4 +45,5 @@ public final class DigestUtils {
         }
         return new String(chars);
     }
+
 }

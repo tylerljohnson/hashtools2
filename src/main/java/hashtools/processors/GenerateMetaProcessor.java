@@ -14,8 +14,8 @@ import java.util.concurrent.*;
 import java.util.concurrent.atomic.*;
 
 public class GenerateMetaProcessor implements Processor {
-    public static final int DEFAULT_QUEUE_SIZE   = 10_000;
-    public static final int DEFAULT_BATCH_SIZE   =    500;
+    public static final int DEFAULT_QUEUE_SIZE   = 10_000_000;
+    public static final int DEFAULT_BATCH_SIZE   =         50;
     private static final long   PROGRESS_INTERVAL_MS = 1_000;
     private static final double MS_PER_SECOND        = 1_000.0;
     private static final String TIMESTAMP_PATTERN    = "yyyy-MM-dd'T'HH:mm:ss";
@@ -54,14 +54,14 @@ public class GenerateMetaProcessor implements Processor {
         boolean toStdout = "-".equals(outputFilePath);
         Path outputFile = (!toStdout && outputFilePath != null) ? Path.of(outputFilePath) : null;
         this.config = new Config(
-                rootDir.toPath(),
-                outputFile,
-                toStdout,
-                threadCount,
-                queueSize,
-                batchSize,
-                silent || toStdout,
-                includeTypeFilter
+            rootDir.toPath(),
+            outputFile,
+            toStdout,
+            threadCount,
+            queueSize,
+            batchSize,
+            silent || toStdout,
+            includeTypeFilter
         );
     }
 
@@ -77,8 +77,8 @@ public class GenerateMetaProcessor implements Processor {
         progressExecutor = Executors.newSingleThreadScheduledExecutor();
 
         try (BufferedWriter writer = config.toStdout
-                ? new BufferedWriter(new OutputStreamWriter(System.out))
-                : Files.newBufferedWriter(config.outputFile)) {
+            ? new BufferedWriter(new OutputStreamWriter(System.out))
+            : Files.newBufferedWriter(config.outputFile)) {
 
             startWriter(writer);
             if (!config.silent && !config.toStdout) startProgressReporter();
@@ -252,4 +252,5 @@ public class GenerateMetaProcessor implements Processor {
             return new Config(null, Path.of("."), false, 0,0,0,false, Collections.emptySet());
         }
     }
+
 }

@@ -8,4 +8,5 @@ final class ExitCode {
     private ExitCode() {
         throw new IllegalStateException(String.format("Cannot instantiate: %s", ExitCode.class.getName()));
     }
+
 }

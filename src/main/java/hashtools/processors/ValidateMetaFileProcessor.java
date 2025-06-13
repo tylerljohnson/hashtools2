@@ -42,6 +42,6 @@ public class ValidateMetaFileProcessor implements Processor {
         } catch (IOException e) {
             throw new RuntimeException("Error reading meta file: " + e.getMessage(), e);
         }
-
     }
+
 }
