@@ -1,4 +1,3 @@
-// src/main/java/hashtools/processors/MetaSelectProcessor.java
 package hashtools.processors;
 
 import hashtools.models.MetaItem;
@@ -19,7 +18,7 @@ public class MetaSelectProcessor implements Processor {
     private final Set<String> mimeFilter;
     private final boolean pathsOnly;
     private final boolean view;
-    private final File copyDir;        // may be null
+    private final File copyDir;
     private final MetaItemSelector selector;
 
     public MetaSelectProcessor(File referenceFile,
@@ -39,43 +38,38 @@ public class MetaSelectProcessor implements Processor {
 
     @Override
     public void run() {
-        // 1) load reference hashes
+        // Load reference hashes
         List<MetaItem> refItems = MetaFileUtils.readMetaFile(referenceFile);
         Set<String> refHashes = refItems.stream()
                 .map(MetaItem::hash)
                 .collect(Collectors.toSet());
 
-        // 2) load all data items
-        List<MetaItem> dataItems = new ArrayList<>();
-        for (File f : dataFiles) {
-            dataItems.addAll(MetaFileUtils.readMetaFile(f));
-        }
-
-        // 3) filter by reference & mime
-        List<MetaItem> filtered = dataItems.stream()
+        // Load and filter data items
+        List<MetaItem> filtered = Arrays.stream(dataFiles)
+                .flatMap(f -> MetaFileUtils.readMetaFile(f).stream())
                 .filter(i -> refHashes.contains(i.hash()))
-                .filter(i -> mimeFilter.isEmpty() ||
-                        mimeFilter.contains(MimeUtils.getMajorType(i.mimeType())))
+                .filter(i -> mimeFilter.isEmpty() || mimeFilter.contains(MimeUtils.getMajorType(i.mimeType())))
                 .collect(Collectors.toList());
 
-        // 4) group by hash:mimeType
-        Map<String,List<MetaItem>> groups = filtered.stream()
+        // Group by hash and full MIME type
+        Map<String, List<MetaItem>> groups = filtered.stream()
                 .collect(Collectors.groupingBy(
                         i -> i.hash() + ":" + i.mimeType(),
-                        LinkedHashMap::new, Collectors.toList()
+                        LinkedHashMap::new,
+                        Collectors.toList()
                 ));
 
-        // 5) for each group, select & output (and maybe copy)
+        // Process each group
         for (List<MetaItem> group : groups.values()) {
             MetaItem best = selector.select(group);
             Path original = Paths.get(best.basePath(), best.filePath());
 
-            // preview
+            // Preview if requested
             if (!pathsOnly && view && MimeUtils.isImage(best.mimeType())) {
                 new ImageViewer().view(best);
             }
 
-            // output
+            // Output
             if (pathsOnly) {
                 System.out.println(original);
             } else {
@@ -83,21 +77,25 @@ public class MetaSelectProcessor implements Processor {
                         group.size(), best.hash(), original);
             }
 
-            // copy
+            // Copy if requested
             if (copyDir != null) {
-                // strip first 3 segments
-                Path rel = original;
-                if (rel.getNameCount() > 3) {
-                    rel = rel.subpath(3, rel.getNameCount());
-                }
-                Path dest = copyDir.toPath().resolve(rel);
-                try {
-                    Files.createDirectories(dest.getParent());
-                    Files.copy(original, dest, StandardCopyOption.REPLACE_EXISTING, StandardCopyOption.COPY_ATTRIBUTES);
-                    //System.out.printf("COPIED: %s → %s%n", original, dest);
-                } catch (IOException e) {
-                    System.err.printf("ERROR copying %s → %s: %s%n",
-                            original, dest, e.getMessage());
+                if (!Files.exists(original) || !Files.isReadable(original)) {
+                    System.err.printf("ERROR: Source not accessible: %s%n", original);
+                } else {
+                    Path rel = original;
+                    if (rel.getNameCount() > 3) {
+                        rel = rel.subpath(3, rel.getNameCount());
+                    }
+                    Path dest = copyDir.toPath().resolve(rel);
+                    try {
+                        Files.createDirectories(dest.getParent());
+                        Files.copy(original, dest,
+                                StandardCopyOption.REPLACE_EXISTING,
+                                StandardCopyOption.COPY_ATTRIBUTES);
+                    } catch (IOException e) {
+                        System.err.printf("ERROR copying %s → %s: %s%n",
+                                original, dest, e.getMessage());
+                    }
                 }
             }
         }
@@ -112,7 +110,7 @@ public class MetaSelectProcessor implements Processor {
                             .thenComparing(Comparator.comparing(MetaItem::filePath).reversed())
                     )
                     .findFirst()
-                    .orElseThrow(() -> new IllegalArgumentException("Empty group"));
+                    .orElseThrow(() -> new IllegalArgumentException("Cannot select from empty group"));
         }
     }
 }
