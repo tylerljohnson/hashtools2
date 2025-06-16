@@ -71,8 +71,8 @@ public class MetaSelectProcessor implements Processor {
             if (pathsOnly) {
                 System.out.println(fullPath);
             } else {
-                System.out.printf("SELECT : %d : %s : %s%n",
-                        group.size(), best.hash(), fullPath);
+                System.out.printf("SELECT : %d : %s : %s : %s%n",
+                        group.size(), best.lastModified(), best.hash(), fullPath);
             }
         }
     }
