@@ -90,8 +90,6 @@ public class MetaSelectProcessor implements Processor {
             // Output
             if (pathsOnly) {
                 System.out.println(original);
-            } else {
-                System.out.printf("SELECT : %d : %s : %s%n", group.size(), best.hash(), original);
             }
 
             // Copy & verify
