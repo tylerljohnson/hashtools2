@@ -93,8 +93,8 @@ public class MetaSelectProcessor implements Processor {
                 Path dest = copyDir.toPath().resolve(rel);
                 try {
                     Files.createDirectories(dest.getParent());
-                    //Files.copy(original, dest, StandardCopyOption.REPLACE_EXISTING, StandardCopyOption.COPY_ATTRIBUTES);
-                    System.out.printf("COPIED: %s → %s%n", original, dest);
+                    Files.copy(original, dest, StandardCopyOption.REPLACE_EXISTING, StandardCopyOption.COPY_ATTRIBUTES);
+                    //System.out.printf("COPIED: %s → %s%n", original, dest);
                 } catch (IOException e) {
                     System.err.printf("ERROR copying %s → %s: %s%n",
                             original, dest, e.getMessage());
