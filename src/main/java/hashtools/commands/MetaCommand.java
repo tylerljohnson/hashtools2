@@ -12,6 +12,7 @@ import picocli.CommandLine.*;
             MetaIntersectSubCommand.class,
             MetaPurgeSubCommand.class,
             MetaViewSubCommand.class,
+            MetaSelectSubCommand.class,
         },
         mixinStandardHelpOptions = true,
         usageHelpAutoWidth = true

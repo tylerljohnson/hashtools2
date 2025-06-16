@@ -1,13 +1,12 @@
 package hashtools.processors;
 
-import hashtools.models.MetaItem;
-import hashtools.utils.MetaFileUtils;
-import hashtools.utils.MimeUtils;
-import hashtools.viewers.ImageViewer;
+import hashtools.models.*;
+import hashtools.utils.*;
+import hashtools.viewers.*;
 
-import java.io.File;
+import java.io.*;
 import java.util.*;
-import java.util.stream.Collectors;
+import java.util.stream.*;
 
 public class MetaViewProcessor implements Processor {
     private final File[] metaFiles;
