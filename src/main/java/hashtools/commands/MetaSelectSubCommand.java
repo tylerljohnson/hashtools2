@@ -1,11 +1,10 @@
 package hashtools.commands;
 
-import hashtools.processors.MetaSelectProcessor;
+import hashtools.processors.*;
 import picocli.CommandLine.*;
 
-import java.io.File;
-import java.util.Collections;
-import java.util.Set;
+import java.io.*;
+import java.util.*;
 
 @Command(
         name = "select",

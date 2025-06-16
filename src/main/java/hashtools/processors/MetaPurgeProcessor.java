@@ -2,7 +2,6 @@ package hashtools.processors;
 
 import hashtools.models.*;
 import hashtools.utils.*;
-import hashtools.utils.SizeUtils;
 import hashtools.viewers.*;
 
 import java.io.*;
