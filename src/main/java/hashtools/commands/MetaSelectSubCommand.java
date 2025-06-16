@@ -31,7 +31,7 @@ public class MetaSelectSubCommand implements Runnable {
             description = "Output only the full path of the selected file per group")
     private boolean pathsOnly = false;
 
-    @Option(names = {"--view", "--no-view"}, negatable = true,
+    @Option(names = {"--view"}, negatable = true,
             description = "Preview each selected item if it is an image")
     private boolean view = false;
 
