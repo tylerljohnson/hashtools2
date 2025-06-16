@@ -1,13 +1,16 @@
+// src/main/java/hashtools/processors/MetaSelectProcessor.java
 package hashtools.processors;
 
-import hashtools.models.*;
-import hashtools.utils.*;
-import hashtools.viewers.*;
+import hashtools.models.MetaItem;
+import hashtools.utils.MetaFileUtils;
+import hashtools.utils.MimeUtils;
+import hashtools.viewers.ImageViewer;
 
-import java.io.*;
+import java.io.File;
+import java.io.IOException;
 import java.nio.file.*;
 import java.util.*;
-import java.util.stream.*;
+import java.util.stream.Collectors;
 
 public class MetaSelectProcessor implements Processor {
 
@@ -16,77 +19,91 @@ public class MetaSelectProcessor implements Processor {
     private final Set<String> mimeFilter;
     private final boolean pathsOnly;
     private final boolean view;
+    private final File copyDir;        // may be null
     private final MetaItemSelector selector;
 
     public MetaSelectProcessor(File referenceFile,
                                File[] dataFiles,
                                Set<String> mimeFilter,
                                boolean pathsOnly,
-                               boolean view) {
+                               boolean view,
+                               File copyDir) {
         this.referenceFile = referenceFile;
-        this.dataFiles = dataFiles;
-        this.mimeFilter = mimeFilter != null ? mimeFilter : Collections.emptySet();
-        this.pathsOnly = pathsOnly;
-        this.view = view;
-        this.selector = new MetaItemSelector();
+        this.dataFiles     = dataFiles;
+        this.mimeFilter    = mimeFilter != null ? mimeFilter : Collections.emptySet();
+        this.pathsOnly     = pathsOnly;
+        this.view          = view;
+        this.copyDir       = copyDir;
+        this.selector      = new MetaItemSelector();
     }
 
     @Override
     public void run() {
-        // Load reference hashes
-        List<MetaItem> referenceItems = MetaFileUtils.readMetaFile(referenceFile);
-        Set<String> referenceHashes = referenceItems.stream()
+        // 1) load reference hashes
+        List<MetaItem> refItems = MetaFileUtils.readMetaFile(referenceFile);
+        Set<String> refHashes = refItems.stream()
                 .map(MetaItem::hash)
                 .collect(Collectors.toSet());
 
-        // Load data items
+        // 2) load all data items
         List<MetaItem> dataItems = new ArrayList<>();
         for (File f : dataFiles) {
             dataItems.addAll(MetaFileUtils.readMetaFile(f));
         }
 
-        // Filter by reference hashes and optional MIME filter
+        // 3) filter by reference & mime
         List<MetaItem> filtered = dataItems.stream()
-                .filter(item -> referenceHashes.contains(item.hash()))
-                .filter(item -> mimeFilter.isEmpty() || mimeFilter.contains(MimeUtils.getMajorType(item.mimeType())))
+                .filter(i -> refHashes.contains(i.hash()))
+                .filter(i -> mimeFilter.isEmpty() ||
+                        mimeFilter.contains(MimeUtils.getMajorType(i.mimeType())))
                 .collect(Collectors.toList());
 
-        // Group by hash and full MIME type
-        Map<String, List<MetaItem>> groups = filtered.stream()
+        // 4) group by hash:mimeType
+        Map<String,List<MetaItem>> groups = filtered.stream()
                 .collect(Collectors.groupingBy(
-                        item -> item.hash() + ":" + item.mimeType(),
-                        LinkedHashMap::new,
-                        Collectors.toList()
+                        i -> i.hash() + ":" + i.mimeType(),
+                        LinkedHashMap::new, Collectors.toList()
                 ));
 
-        // Select best item per group and output
+        // 5) for each group, select & output (and maybe copy)
         for (List<MetaItem> group : groups.values()) {
             MetaItem best = selector.select(group);
-            Path fullPath = Paths.get(best.basePath(), best.filePath());
+            Path original = Paths.get(best.basePath(), best.filePath());
 
+            // preview
             if (!pathsOnly && view && MimeUtils.isImage(best.mimeType())) {
                 new ImageViewer().view(best);
             }
 
+            // output
             if (pathsOnly) {
-                System.out.println(fullPath);
+                System.out.println(original);
             } else {
-                System.out.printf("SELECT : %d : %s : %s : %s%n",
-                        group.size(), best.lastModified(), best.hash(), fullPath);
+                System.out.printf("SELECT : %d : %s : %s%n",
+                        group.size(), best.hash(), original);
+            }
+
+            // copy
+            if (copyDir != null) {
+                // strip first 3 segments
+                Path rel = original;
+                if (rel.getNameCount() > 3) {
+                    rel = rel.subpath(3, rel.getNameCount());
+                }
+                Path dest = copyDir.toPath().resolve(rel);
+                try {
+                    Files.createDirectories(dest.getParent());
+                    //Files.copy(original, dest, StandardCopyOption.REPLACE_EXISTING, StandardCopyOption.COPY_ATTRIBUTES);
+                    System.out.printf("COPIED: %s → %s%n", original, dest);
+                } catch (IOException e) {
+                    System.err.printf("ERROR copying %s → %s: %s%n",
+                            original, dest, e.getMessage());
+                }
             }
         }
     }
 
-    /**
-     * Inner class encapsulating selection logic for MetaItem groups.
-     */
     private static class MetaItemSelector {
-        /**
-         * Selects the best MetaItem from the group, sorted by:
-         * 1. lastModified ascending (oldest first)
-         * 2. basePath descending
-         * 3. filePath descending
-         */
         public MetaItem select(List<MetaItem> group) {
             return group.stream()
                     .sorted(Comparator
@@ -95,7 +112,7 @@ public class MetaSelectProcessor implements Processor {
                             .thenComparing(Comparator.comparing(MetaItem::filePath).reversed())
                     )
                     .findFirst()
-                    .orElseThrow(() -> new IllegalArgumentException("Cannot select from empty group"));
+                    .orElseThrow(() -> new IllegalArgumentException("Empty group"));
         }
     }
 }
