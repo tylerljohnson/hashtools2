@@ -90,8 +90,8 @@ public class MetaSelectProcessor implements Processor {
 
             Path original = Paths.get(best.basePath(), best.filePath());
 
-            // Preview if image
-            if (!pathsOnly && view && MimeUtils.isImage(best.mimeType())) {
+            // Preview (regardless of pathsOnly)
+            if (view && MimeUtils.isImage(best.mimeType())) {
                 new ImageViewer().view(best);
             }
 
