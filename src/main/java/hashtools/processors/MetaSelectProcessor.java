@@ -6,9 +6,8 @@ import hashtools.viewers.*;
 
 import java.io.*;
 import java.nio.file.*;
-import java.nio.file.attribute.*;
 import java.util.*;
-import java.util.stream.Collectors;
+import java.util.stream.*;
 
 public class MetaSelectProcessor implements Processor {
 
@@ -19,11 +18,11 @@ public class MetaSelectProcessor implements Processor {
     private final boolean view;
     private final boolean summary;
     private final File copyDir;
+    private final boolean delete;
     private final MetaItemSelector selector;
 
-    // Track selected and unselected items
-    private Set<MetaItem> selectedItems = new LinkedHashSet<>();
-    private Set<MetaItem> unselectedItems = new LinkedHashSet<>();
+    private final Set<MetaItem> selectedItems   = new LinkedHashSet<>();
+    private final Set<MetaItem> unselectedItems = new LinkedHashSet<>();
 
     public MetaSelectProcessor(File referenceFile,
                                File[] dataFiles,
@@ -31,40 +30,41 @@ public class MetaSelectProcessor implements Processor {
                                boolean pathsOnly,
                                boolean view,
                                boolean summary,
-                               File copyDir) {
+                               File copyDir,
+                               boolean delete) {
         this.referenceFile = referenceFile;
-        this.dataFiles = dataFiles;
-        this.mimeFilter = mimeFilter != null ? mimeFilter : Collections.emptySet();
-        this.pathsOnly = pathsOnly;
-        this.view = view;
-        this.summary = summary;
-        this.copyDir = copyDir;
-        this.selector = new MetaItemSelector();
+        this.dataFiles     = dataFiles;
+        this.mimeFilter    = mimeFilter != null ? mimeFilter : Collections.emptySet();
+        this.pathsOnly     = pathsOnly;
+        this.view          = view;
+        this.summary       = summary;
+        this.copyDir       = copyDir;
+        this.delete        = delete;
+        this.selector      = new MetaItemSelector();
     }
 
     @Override
     public void run() {
-        // Load reference hashes
+        // 1) Load reference hashes
         List<MetaItem> referenceItems = MetaFileUtils.readMetaFile(referenceFile);
         Set<String> referenceHashes = referenceItems.stream()
                 .map(MetaItem::hash)
                 .collect(Collectors.toSet());
 
-        // Load all data items
+        // 2) Load all data items
         List<MetaItem> dataItems = new ArrayList<>();
         for (File f : dataFiles) {
             dataItems.addAll(MetaFileUtils.readMetaFile(f));
         }
 
-        // Filter by reference and MIME filter
+        // 3) Filter by reference and MIME
         List<MetaItem> filtered = dataItems.stream()
                 .filter(item -> referenceHashes.contains(item.hash()))
-                .filter(item -> mimeFilter.isEmpty() || mimeFilter.contains(MimeUtils.getMajorType(item.mimeType())))
+                .filter(item -> mimeFilter.isEmpty() ||
+                        mimeFilter.contains(MimeUtils.getMajorType(item.mimeType())))
                 .collect(Collectors.toList());
 
-        selectedItems.clear();
-
-        // Group by hash:mimeType
+        // 4) Group by hash:mimeType
         Map<String, List<MetaItem>> groups = filtered.stream()
                 .collect(Collectors.groupingBy(
                         item -> item.hash() + ":" + item.mimeType(),
@@ -73,8 +73,9 @@ public class MetaSelectProcessor implements Processor {
                 ));
 
         long totalSelectedSize = 0L;
+        List<Path> toDelete = new ArrayList<>();
 
-        // Process each group
+        // 5) Process each group
         for (List<MetaItem> group : groups.values()) {
             MetaItem best = selector.select(group);
             selectedItems.add(best);
@@ -82,7 +83,7 @@ public class MetaSelectProcessor implements Processor {
 
             Path original = Paths.get(best.basePath(), best.filePath());
 
-            // Preview if requested
+            // Preview
             if (!pathsOnly && view && MimeUtils.isImage(best.mimeType())) {
                 new ImageViewer().view(best);
             }
@@ -90,50 +91,80 @@ public class MetaSelectProcessor implements Processor {
             // Output
             if (pathsOnly) {
                 System.out.println(original);
+            } else {
+                System.out.printf("SELECT : %d : %s : %s%n",
+                        group.size(), best.hash(), original);
             }
 
             // Copy & verify
             if (copyDir != null) {
-                if (!Files.exists(original) || !Files.isReadable(original)) {
-                    throw new RuntimeException("Source file not accessible: " + original);
+                copyAndVerify(original);
+                if (delete) {
+                    toDelete.add(original);
                 }
-                Path rel = original;
-                if (rel.getNameCount() > 3) rel = rel.subpath(3, rel.getNameCount());
-                Path dest = copyDir.toPath().resolve(rel);
-                try {
-                    Files.createDirectories(dest.getParent());
-                    Files.copy(original, dest, StandardCopyOption.REPLACE_EXISTING, StandardCopyOption.COPY_ATTRIBUTES);
-                    // Verify size
-                    long srcSize = Files.size(original);
-                    long dstSize = Files.size(dest);
-                    FileTime srcTime = Files.getLastModifiedTime(original);
-                    FileTime dstTime = Files.getLastModifiedTime(dest);
-                    if (srcSize != dstSize) {
-                        throw new RuntimeException(String.format(
-                                "Copy verification failed for %s -> %s: size mismatch (src=%d,dst=%d)",
-                                original, dest, srcSize, dstSize));
+            }
+
+            // Schedule unselected group members for deletion
+            if (delete) {
+                for (MetaItem item : group) {
+                    if (!item.equals(best)) {
+                        toDelete.add(Paths.get(item.basePath(), item.filePath()));
                     }
-                    if (!srcTime.equals(dstTime)) {
-                        throw new RuntimeException(String.format(
-                                "Copy verification failed for %s -> %s: timestamp mismatch (src=%s,dst=%s)",
-                                original, dest, srcTime, dstTime));
-                    }
-                } catch (IOException e) {
-                    throw new RuntimeException("Error copying file " + original + " to " + dest + ": " + e.getMessage(), e);
                 }
             }
         }
 
-        // Determine unselected items
+        // 6) Collect unselected items
         unselectedItems.clear();
-        unselectedItems.addAll(filtered);
+        filtered.forEach(unselectedItems::add);
         unselectedItems.removeAll(selectedItems);
 
-        // Summary
+        // 7) Perform deletions (deferred)
+        if (delete) {
+            for (Path p : toDelete) {
+                try {
+                    boolean removed = Files.deleteIfExists(p);
+                    System.out.printf("Deleted %b: %s%n", removed, p);
+                } catch (IOException e) {
+                    System.err.printf("ERROR deleting %s: %s%n", p, e.getMessage());
+                    throw new RuntimeException("Deletion failed, aborting", e);
+                }
+            }
+        }
+
+        // 8) Summary
         if (summary) {
-            long totalUnselectedSize = unselectedItems.stream().mapToLong(MetaItem::fileSize).sum();
-            System.out.printf("Total selected size  : %s%n", SizeUtils.humanReadable(totalSelectedSize));
-            System.out.printf("Total unselected size: %s%n", SizeUtils.humanReadable(totalUnselectedSize));
+            long totalUnselectedSize = unselectedItems.stream()
+                    .mapToLong(MetaItem::fileSize)
+                    .sum();
+            System.out.printf("Total selected size  : %s%n",
+                    SizeUtils.humanReadable(totalSelectedSize));
+            System.out.printf("Total unselected size: %s%n",
+                    SizeUtils.humanReadable(totalUnselectedSize));
+            System.out.printf("Deleted items        : %d%n",
+                    toDelete.size());
+        }
+    }
+
+    private void copyAndVerify(Path original) {
+        try {
+            if (!Files.exists(original) || !Files.isReadable(original)) {
+                throw new RuntimeException("Source not accessible: " + original);
+            }
+            // Determine destination path
+            Path rel = original.getNameCount() > 3
+                    ? original.subpath(3, original.getNameCount())
+                    : original.getFileName();
+            Path dest = copyDir.toPath().resolve(rel);
+
+            // Copy (with basic attributes) and ensure directory exists
+            Files.createDirectories(dest.getParent());
+            Files.copy(original, dest,
+                    StandardCopyOption.REPLACE_EXISTING,
+                    StandardCopyOption.COPY_ATTRIBUTES);
+        } catch (IOException e) {
+            throw new RuntimeException(
+                    "Error copying file " + original + ": " + e.getMessage(), e);
         }
     }
 
@@ -151,8 +182,7 @@ public class MetaSelectProcessor implements Processor {
                     .sorted(Comparator
                             .comparing(MetaItem::lastModified)
                             .thenComparing(Comparator.comparing(MetaItem::basePath).reversed())
-                            .thenComparing(Comparator.comparing(MetaItem::filePath).reversed())
-                    )
+                            .thenComparing(Comparator.comparing(MetaItem::filePath).reversed()))
                     .findFirst()
                     .orElseThrow(() -> new IllegalArgumentException("Cannot select from empty group"));
         }

@@ -42,6 +42,10 @@ public class MetaSelectSubCommand implements Runnable {
             description = "Copy each selected file to this directory, stripping first 3 path segments")
     private File copyDir;
 
+    @Option(names = {"--delete"}, negatable = true,
+            description = "Delete unselected items after copying (default: false)", defaultValue = "false")
+    private boolean delete = false;
+
     @Override
     public void run() {
         // Validate copy directory if provided
@@ -59,7 +63,8 @@ public class MetaSelectSubCommand implements Runnable {
                 pathsOnly,
                 view,
                 summary,
-                copyDir
+                copyDir,
+                delete
         ).run();
     }
 }
