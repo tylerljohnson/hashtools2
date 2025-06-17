@@ -1,11 +1,10 @@
 package hashtools.commands;
 
 import hashtools.processors.*;
+import picocli.CommandLine.*;
 
 import java.io.*;
 import java.util.*;
-
-import picocli.CommandLine.*;
 
 @Command(
         name = "select",
@@ -48,12 +47,18 @@ public class MetaSelectSubCommand implements Runnable {
 
     @Override
     public void run() {
-        // Validate copy directory if provided
+        // Validate --copy target directory if provided
         if (copyDir != null) {
             if (!copyDir.exists() || !copyDir.isDirectory() || !copyDir.canRead() || !copyDir.canWrite()) {
                 System.err.printf("ERROR: --copy target must be an existing, readable/writable directory: %s%n", copyDir);
                 System.exit(1);
             }
+        }
+
+        // Enforce that --delete only makes sense with --copy
+        if (delete && copyDir == null) {
+            System.err.println("ERROR: --delete requires --copy to be set.");
+            System.exit(1);
         }
 
         new MetaSelectProcessor(

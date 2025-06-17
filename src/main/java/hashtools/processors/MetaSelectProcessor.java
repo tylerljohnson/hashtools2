@@ -32,8 +32,7 @@ public class MetaSelectProcessor implements Processor {
                                boolean view,
                                boolean summary,
                                File copyDir,
-                               boolean delete)
-    {
+                               boolean delete) {
         this.referenceFile = referenceFile;
         this.dataFiles     = dataFiles;
         this.mimeFilter    = mimeFilter != null ? mimeFilter : Collections.emptySet();
@@ -47,28 +46,28 @@ public class MetaSelectProcessor implements Processor {
 
     @Override
     public void run() {
-        // 1) Load reference and data items
+        // Enforce --delete only when --copy is set
+        if (delete && copyDir == null) {
+            throw new IllegalStateException("--delete requires --copy to be set");
+        }
+
+        // 1) Load reference hashes
         List<MetaItem> referenceItems = MetaFileUtils.readMetaFile(referenceFile);
+        Set<String> referenceHashes = referenceItems.stream()
+                .map(MetaItem::hash)
+                .collect(Collectors.toSet());
+
+        // 2) Load all data items
         List<MetaItem> dataItems = new ArrayList<>();
         for (File f : dataFiles) {
             dataItems.addAll(MetaFileUtils.readMetaFile(f));
         }
 
-        // 2) Filter both sets by MIME if needed
-        Stream<MetaItem> refStream = referenceItems.stream()
+        // 3) Filter by reference and MIME
+        List<MetaItem> filtered = dataItems.stream()
+                .filter(item -> referenceHashes.contains(item.hash()))
                 .filter(item -> mimeFilter.isEmpty() ||
-                        mimeFilter.contains(MimeUtils.getMajorType(item.mimeType())));
-
-        Stream<MetaItem> dataStream = dataItems.stream()
-                // only keep data items whose hash exists in reference
-                .filter(item -> referenceItems.stream()
-                        .map(MetaItem::hash)
-                        .anyMatch(h -> h.equals(item.hash())))
-                .filter(item -> mimeFilter.isEmpty() ||
-                        mimeFilter.contains(MimeUtils.getMajorType(item.mimeType())));
-
-        // 3) Combine reference + data into one list for grouping
-        List<MetaItem> filtered = Stream.concat(refStream, dataStream)
+                        mimeFilter.contains(MimeUtils.getMajorType(item.mimeType())))
                 .collect(Collectors.toList());
 
         // 4) Group by hash:mimeType
@@ -82,7 +81,7 @@ public class MetaSelectProcessor implements Processor {
         long totalSelectedSize = 0L;
         List<Path> toDelete = new ArrayList<>();
 
-        // 5) Process each group including reference items
+        // 5) Process each group
         for (List<MetaItem> group : groups.values()) {
             MetaItem best = selector.select(group);
             selectedItems.add(best);
@@ -90,19 +89,20 @@ public class MetaSelectProcessor implements Processor {
 
             Path original = Paths.get(best.basePath(), best.filePath());
 
-            // Preview (regardless of pathsOnly)
+            // Preview
             if (view && MimeUtils.isImage(best.mimeType())) {
                 new ImageViewer().view(best);
             }
 
-            // Output selection line or path
+            // Output
             if (pathsOnly) {
                 System.out.println(original);
             } else {
-                System.out.printf("SELECT : %d : %s : %s : %s%n", group.size(), best.lastModified(), best.hash(), original);
+                System.out.printf("SELECT : %d : %s : %s : %s%n",
+                        group.size(), best.lastModified(), best.hash(), original);
             }
 
-            // Copy & verify, then optionally schedule selected for deletion
+            // Copy & verify
             if (copyDir != null) {
                 copyAndVerify(original);
                 if (delete) {
@@ -110,7 +110,7 @@ public class MetaSelectProcessor implements Processor {
                 }
             }
 
-            // Schedule other group members for deletion
+            // Schedule unselected group members for deletion
             if (delete) {
                 for (MetaItem item : group) {
                     if (!item.equals(best)) {
@@ -120,12 +120,12 @@ public class MetaSelectProcessor implements Processor {
             }
         }
 
-        // 6) Build unselected set
+        // 6) Collect unselected items
         unselectedItems.clear();
-        unselectedItems.addAll(filtered);
+        filtered.forEach(unselectedItems::add);
         unselectedItems.removeAll(selectedItems);
 
-        // 7) Perform all deletions after grouping
+        // 7) Perform deletions (deferred)
         if (delete) {
             for (Path p : toDelete) {
                 try {
@@ -138,7 +138,7 @@ public class MetaSelectProcessor implements Processor {
             }
         }
 
-        // 8) Summary if requested
+        // 8) Summary
         if (summary) {
             long totalUnselectedSize = unselectedItems.stream()
                     .mapToLong(MetaItem::fileSize)
