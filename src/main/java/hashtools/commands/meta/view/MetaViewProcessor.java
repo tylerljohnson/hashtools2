@@ -12,26 +12,31 @@ import java.util.stream.*;
 public class MetaViewProcessor implements Processor {
     private final File[] metaFiles;
     private final Set<String> mimeFilter;
+    private final boolean view;
 
-    public MetaViewProcessor(File[] metaFiles, Set<String> mimeFilter) {
-        this.metaFiles = metaFiles;
+    public MetaViewProcessor(File[] metaFiles,
+                             Set<String> mimeFilter,
+                             boolean view) {
+        this.metaFiles  = metaFiles;
         this.mimeFilter = mimeFilter != null ? mimeFilter : Collections.emptySet();
+        this.view       = view;
     }
 
     @Override
     public void run() {
-        // Load all items from provided meta files
+        // 1) Load all items
         List<MetaItem> allItems = new ArrayList<>();
         for (File f : metaFiles) {
             allItems.addAll(MetaFileUtils.readMetaFile(f));
         }
 
-        // Apply MIME-filter if specified
+        // 2) Apply MIME filter
         List<MetaItem> filtered = allItems.stream()
-                .filter(item -> mimeFilter.isEmpty() || mimeFilter.contains(MimeUtils.getMajorType(item.mimeType())))
+                .filter(item -> mimeFilter.isEmpty()
+                        || mimeFilter.contains(MimeUtils.getMajorType(item.mimeType())))
                 .collect(Collectors.toList());
 
-        // Group by hash and major MIME type
+        // 3) Group by hash + major MIME type
         Map<String, List<MetaItem>> groups = filtered.stream()
                 .collect(Collectors.groupingBy(
                         item -> item.hash() + ":" + MimeUtils.getMajorType(item.mimeType()),
@@ -39,35 +44,41 @@ public class MetaViewProcessor implements Processor {
                         Collectors.toList()
                 ));
 
-        // Preview and list each group
-        for (Map.Entry<String, List<MetaItem>> entry : groups.entrySet()) {
-            String[] parts = entry.getKey().split(":", 2);
-            String hash = parts[0];
-            List<MetaItem> group = entry.getValue();
-            int count = group.size();
+        // 4) For each group...
+        for (Map.Entry<String,List<MetaItem>> e : groups.entrySet()) {
+            String[] parts = e.getKey().split(":", 2);
+            String hash    = parts[0];
+            List<MetaItem> group = e.getValue();
+            int count      = group.size();
 
-            // Print group header: count, hash, full MIME type
+            // a) Header
             MetaItem exemplar = group.get(0);
             String fullMime = exemplar.mimeType();
             System.out.printf("GROUP : %,d : %s : %s%n", count, hash, fullMime);
 
-            // Preview exemplar if image
-            if (MimeUtils.isImage(exemplar.mimeType())) {
+            // b) Preview if requested
+            if (view && MimeUtils.isImage(exemplar.mimeType())) {
                 new ImageViewer().view(exemplar);
             }
 
-            // List all file paths
+            // c) Sort & list members
+            group.sort(Comparator
+                    .comparing(MetaItem::lastModified).reversed()
+                    .thenComparing(MetaItem::basePath)
+                    .thenComparing(MetaItem::filePath)
+            );
             for (MetaItem item : group) {
-                System.out.printf("  - %s%n", item.filePath());
+                System.out.printf("  - %s : %s/%s%n",
+                        item.lastModified(),
+                        item.basePath(),
+                        item.filePath());
             }
             System.out.println();
         }
 
-        // Summary
-        int totalGroups = groups.size();
-        int totalItems = filtered.size();
+        // 5) Summary
         System.out.println("SUMMARY");
-        System.out.printf("  Groups: %d%n", totalGroups);
-        System.out.printf("  Items : %d%n", totalItems);
+        System.out.printf("  Groups: %d%n", groups.size());
+        System.out.printf("  Items : %d%n", filtered.size());
     }
 }
