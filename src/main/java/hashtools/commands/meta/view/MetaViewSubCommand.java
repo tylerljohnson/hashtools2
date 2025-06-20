@@ -1,7 +1,6 @@
 // src/main/java/hashtools/commands/MetaViewSubCommand.java
-package hashtools.commands;
+package hashtools.commands.meta.view;
 
-import hashtools.processors.*;
 import picocli.CommandLine.*;
 
 import java.io.*;

@@ -1,6 +1,7 @@
 package hashtools;
 
-import hashtools.commands.*;
+import hashtools.commands.generate.*;
+import hashtools.commands.meta.*;
 import hashtools.utils.*;
 import picocli.*;
 import picocli.CommandLine.*;

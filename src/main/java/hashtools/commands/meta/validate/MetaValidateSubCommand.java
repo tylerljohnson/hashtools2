@@ -1,6 +1,5 @@
-package hashtools.commands;
+package hashtools.commands.meta.validate;
 
-import hashtools.processors.*;
 import picocli.CommandLine.*;
 
 import java.io.*;

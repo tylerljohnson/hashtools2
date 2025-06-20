@@ -1,4 +1,6 @@
-package hashtools.processors;
+package hashtools.commands.meta.validate;
+
+import hashtools.commands.*;
 
 import java.io.*;
 import java.nio.file.*;

@@ -1,9 +1,8 @@
-package hashtools.commands;
+package hashtools.commands.meta.select;
 
-import hashtools.processors.MetaSelectProcessor;
 import picocli.CommandLine.*;
 
-import java.io.File;
+import java.io.*;
 import java.util.*;
 
 @Command(

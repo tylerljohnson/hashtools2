@@ -1,5 +1,6 @@
-package hashtools.processors;
+package hashtools.commands.meta.purge;
 
+import hashtools.commands.*;
 import hashtools.models.*;
 import hashtools.utils.*;
 import hashtools.viewers.*;
