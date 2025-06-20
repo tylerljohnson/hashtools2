@@ -71,7 +71,7 @@ public class MetaViewProcessor implements Processor {
 
             // c) Sort & list members
             group.sort(Comparator
-                    .comparing(MetaItem::lastModified).reversed()
+                    .comparing(MetaItem::lastModified)
                     .thenComparing(MetaItem::basePath)
                     .thenComparing(MetaItem::filePath)
             );
