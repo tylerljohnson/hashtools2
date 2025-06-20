@@ -1,6 +1,5 @@
 package hashtools.commands.meta.view;
 
-import hashtools.commands.Processor;
 import picocli.CommandLine.*;
 
 import java.io.File;
@@ -27,8 +26,12 @@ public class MetaViewSubCommand implements Runnable {
             description = "Preview one exemplar image per group (default: false)")
     private boolean view = false;
 
+    @Option(names = "--no-unique", defaultValue = "false",
+            description = "Suppress groups that contain only a single item")
+    private boolean noUnique = false;
+
     @Override
     public void run() {
-        new MetaViewProcessor(metaFiles, mimeFilter, view).run();
+        new MetaViewProcessor(metaFiles, mimeFilter, view, noUnique).run();
     }
 }

@@ -13,13 +13,16 @@ public class MetaViewProcessor implements Processor {
     private final File[] metaFiles;
     private final Set<String> mimeFilter;
     private final boolean view;
+    private final boolean noUnique;
 
     public MetaViewProcessor(File[] metaFiles,
                              Set<String> mimeFilter,
-                             boolean view) {
+                             boolean view,
+                             boolean noUnique) {
         this.metaFiles  = metaFiles;
         this.mimeFilter = mimeFilter != null ? mimeFilter : Collections.emptySet();
         this.view       = view;
+        this.noUnique   = noUnique;
     }
 
     @Override
@@ -44,11 +47,16 @@ public class MetaViewProcessor implements Processor {
                         Collectors.toList()
                 ));
 
-        // 4) For each group...
+        // 4) Preview and list each group
         for (Map.Entry<String,List<MetaItem>> e : groups.entrySet()) {
+            List<MetaItem> group = e.getValue();
+            if (noUnique && group.size() < 2) {
+                // skip groups with less than 2 items when --no-unique
+                continue;
+            }
+
             String[] parts = e.getKey().split(":", 2);
             String hash    = parts[0];
-            List<MetaItem> group = e.getValue();
             int count      = group.size();
 
             // a) Header
