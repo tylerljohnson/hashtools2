@@ -1,9 +1,9 @@
 package hashtools.commands;
 
-import hashtools.processors.*;
+import hashtools.processors.MetaSelectProcessor;
 import picocli.CommandLine.*;
 
-import java.io.*;
+import java.io.File;
 import java.util.*;
 
 @Command(
@@ -13,13 +13,13 @@ import java.util.*;
 )
 public class MetaSelectSubCommand implements Runnable {
 
-    @Parameters(index = "0", paramLabel = "REFERENCE",
-            description = "Reference .meta file containing hashes to select")
-    private File referenceFile;
-
-    @Parameters(index = "1..*", paramLabel = "DATA...",
-            description = "One or more data .meta files to search")
-    private File[] dataFiles;
+    @Parameters(
+            index       = "0..*",
+            arity       = "1..*",
+            paramLabel  = "FILES...",
+            description = "First file is reference; any additional files are data files to select from"
+    )
+    private File[] inputFiles;
 
     @Option(names = "--mime-filter", split = ",",
             description = "Restrict to these major MIME types (e.g. image, video)")
@@ -29,36 +29,43 @@ public class MetaSelectSubCommand implements Runnable {
             description = "Output only the full path of the selected file per group")
     private boolean pathsOnly = false;
 
-    @Option(names = {"--view"}, negatable = true,
-            description = "Preview each selected item if it is an image (default: false)", defaultValue = "false")
+    @Option(names = {"--view"}, negatable = true, defaultValue = "false",
+            description = "Preview each selected item if it is an image (default: false)")
     private boolean view = false;
 
-    @Option(names = {"--summary"}, negatable = true,
-            description = "Print total selected and unselected sizes (default: false)", defaultValue = "false")
+    @Option(names = {"--summary"}, negatable = true, defaultValue = "false",
+            description = "Print total selected and unselected sizes (default: false)")
     private boolean summary = false;
 
     @Option(names = "--copy", paramLabel = "DEST_DIR",
             description = "Copy each selected file to this directory, stripping first 3 path segments")
     private File copyDir;
 
-    @Option(names = {"--delete"}, negatable = true,
-            description = "Delete unselected items after copying (default: false)", defaultValue = "false")
-    private boolean delete = false;
+    @Option(names = {"--prune"}, negatable = true, defaultValue = "false",
+            description = "Prune (delete) all non-best (more recent) duplicates (default: false)")
+    private boolean prune = false;
 
     @Override
     public void run() {
-        // Validate --copy target directory if provided
-        if (copyDir != null) {
-            if (!copyDir.exists() || !copyDir.isDirectory() || !copyDir.canRead() || !copyDir.canWrite()) {
-                System.err.printf("ERROR: --copy target must be an existing, readable/writable directory: %s%n", copyDir);
-                System.exit(1);
-            }
+        // Split out reference vs data
+        File referenceFile = inputFiles[0];
+        File[] dataFiles;
+        if (inputFiles.length > 1) {
+            dataFiles = Arrays.copyOfRange(inputFiles, 1, inputFiles.length);
+        } else {
+            dataFiles = new File[] { referenceFile };
         }
 
-        // Enforce that --delete only makes sense with --copy
-        if (delete && copyDir == null) {
-            System.err.println("ERROR: --delete requires --copy to be set.");
-            System.exit(1);
+        // Validate --copy target directory if provided
+        if (copyDir != null) {
+            if (!copyDir.exists() || !copyDir.isDirectory()
+                    || !copyDir.canRead()   || !copyDir.canWrite()) {
+                System.err.printf(
+                        "ERROR: --copy target must be an existing, readable/writable directory: %s%n",
+                        copyDir
+                );
+                System.exit(1);
+            }
         }
 
         new MetaSelectProcessor(
@@ -69,7 +76,7 @@ public class MetaSelectSubCommand implements Runnable {
                 view,
                 summary,
                 copyDir,
-                delete
+                prune
         ).run();
     }
 }

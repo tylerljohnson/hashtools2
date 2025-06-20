@@ -19,7 +19,7 @@ public class MetaSelectProcessor implements Processor {
     private final boolean view;
     private final boolean summary;
     private final File copyDir;
-    private final boolean delete;
+    private final boolean removeRecent;
     private final MetaItemSelector selector;
 
     private final Set<MetaItem> selectedItems   = new LinkedHashSet<>();
@@ -32,32 +32,28 @@ public class MetaSelectProcessor implements Processor {
                                boolean view,
                                boolean summary,
                                File copyDir,
-                               boolean delete) {
-        this.referenceFile = referenceFile;
-        this.dataFiles     = dataFiles;
-        this.mimeFilter    = mimeFilter != null ? mimeFilter : Collections.emptySet();
-        this.pathsOnly     = pathsOnly;
-        this.view          = view;
-        this.summary       = summary;
-        this.copyDir       = copyDir;
-        this.delete        = delete;
-        this.selector      = new MetaItemSelector();
+                               boolean prune)
+    {
+        this.referenceFile  = referenceFile;
+        this.dataFiles      = dataFiles;
+        this.mimeFilter     = mimeFilter != null ? mimeFilter : Collections.emptySet();
+        this.pathsOnly      = pathsOnly;
+        this.view           = view;
+        this.summary        = summary;
+        this.copyDir        = copyDir;
+        this.removeRecent   = prune;
+        this.selector       = new MetaItemSelector();
     }
 
     @Override
     public void run() {
-        // Enforce --delete only when --copy is set
-        if (delete && copyDir == null) {
-            throw new IllegalStateException("--delete requires --copy to be set");
-        }
-
-        // 1) Load reference hashes
+        // 1) Load reference items
         List<MetaItem> referenceItems = MetaFileUtils.readMetaFile(referenceFile);
         Set<String> referenceHashes = referenceItems.stream()
                 .map(MetaItem::hash)
                 .collect(Collectors.toSet());
 
-        // 2) Load all data items
+        // 2) Load data items
         List<MetaItem> dataItems = new ArrayList<>();
         for (File f : dataFiles) {
             dataItems.addAll(MetaFileUtils.readMetaFile(f));
@@ -79,7 +75,7 @@ public class MetaSelectProcessor implements Processor {
                 ));
 
         long totalSelectedSize = 0L;
-        List<Path> toDelete = new ArrayList<>();
+        List<Path> toDelete    = new ArrayList<>();
 
         // 5) Process each group
         for (List<MetaItem> group : groups.values()) {
@@ -89,7 +85,7 @@ public class MetaSelectProcessor implements Processor {
 
             Path original = Paths.get(best.basePath(), best.filePath());
 
-            // Preview
+            // Preview if requested
             if (view && MimeUtils.isImage(best.mimeType())) {
                 new ImageViewer().view(best);
             }
@@ -99,19 +95,19 @@ public class MetaSelectProcessor implements Processor {
                 System.out.println(original);
             } else {
                 System.out.printf("SELECT : %d : %s : %s : %s%n",
-                        group.size(), best.lastModified(), best.hash(), original);
+                        group.size(),
+                        best.lastModified(),
+                        best.hash(),
+                        original);
             }
 
             // Copy & verify
             if (copyDir != null) {
                 copyAndVerify(original);
-                if (delete) {
-                    toDelete.add(original);
-                }
             }
 
-            // Schedule unselected group members for deletion
-            if (delete) {
+            // Schedule non-best duplicates for deletion
+            if (removeRecent) {
                 for (MetaItem item : group) {
                     if (!item.equals(best)) {
                         toDelete.add(Paths.get(item.basePath(), item.filePath()));
@@ -125,8 +121,8 @@ public class MetaSelectProcessor implements Processor {
         filtered.forEach(unselectedItems::add);
         unselectedItems.removeAll(selectedItems);
 
-        // 7) Perform deletions (deferred)
-        if (delete) {
+        // 7) Perform deferred deletions
+        if (removeRecent) {
             for (Path p : toDelete) {
                 try {
                     boolean removed = Files.deleteIfExists(p);
@@ -157,7 +153,7 @@ public class MetaSelectProcessor implements Processor {
             if (!Files.exists(original) || !Files.isReadable(original)) {
                 throw new RuntimeException("Source not accessible: " + original);
             }
-            Path rel = original.getNameCount() > 3
+            Path rel  = original.getNameCount() > 3
                     ? original.subpath(3, original.getNameCount())
                     : original.getFileName();
             Path dest = copyDir.toPath().resolve(rel);
@@ -168,10 +164,10 @@ public class MetaSelectProcessor implements Processor {
                     StandardCopyOption.COPY_ATTRIBUTES);
 
             // verify size & timestamp
-            long srcSize = Files.size(original);
-            long dstSize = Files.size(dest);
-            FileTime srcTime = Files.getLastModifiedTime(original);
-            FileTime dstTime = Files.getLastModifiedTime(dest);
+            long srcSize    = Files.size(original);
+            long dstSize    = Files.size(dest);
+            FileTime srcTime= Files.getLastModifiedTime(original);
+            FileTime dstTime= Files.getLastModifiedTime(dest);
 
             if (srcSize != dstSize) {
                 throw new RuntimeException(String.format(
@@ -183,7 +179,6 @@ public class MetaSelectProcessor implements Processor {
                         "Copy verification failed for %s → %s: timestamp mismatch (src=%s,dst=%s)",
                         original, dest, srcTime, dstTime));
             }
-
         } catch (IOException e) {
             throw new RuntimeException(
                     "Error copying file " + original + ": " + e.getMessage(), e);
