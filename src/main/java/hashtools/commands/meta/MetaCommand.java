@@ -1,5 +1,6 @@
 package hashtools.commands.meta;
 
+import hashtools.commands.meta.clean.*;
 import hashtools.commands.meta.intersect.*;
 import hashtools.commands.meta.purge.*;
 import hashtools.commands.meta.select.*;
@@ -20,6 +21,7 @@ import picocli.CommandLine.*;
             MetaPurgeSubCommand.class,
             MetaViewSubCommand.class,
             MetaSelectSubCommand.class,
+            MetaCleanSubCommand.class,
         },
         mixinStandardHelpOptions = true,
         usageHelpAutoWidth = true

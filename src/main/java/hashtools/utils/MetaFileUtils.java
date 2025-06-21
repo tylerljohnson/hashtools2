@@ -65,6 +65,12 @@ public class MetaFileUtils {
 
     private static final DateTimeFormatter TIMESTAMP_FORMAT = DateTimeFormatter.ofPattern("yyyyMMdd-HHmmss");
 
+    public static Path backupMetaFile(Path path) throws IOException {
+        if (path == null) {
+            throw new IllegalArgumentException("Cannot backup: path is null or does not exist.");
+        }
+        return backupMetaFile(path.toFile());
+    }
     public static Path backupMetaFile(File file) throws IOException {
         if (file == null || !file.exists()) {
             throw new IllegalArgumentException("Cannot backup: file is null or does not exist.");
