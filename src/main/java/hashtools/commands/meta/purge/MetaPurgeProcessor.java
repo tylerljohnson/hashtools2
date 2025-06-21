@@ -19,13 +19,18 @@ public class MetaPurgeProcessor implements Processor {
     private final boolean simple;
     private final Set<String> mimeFilter;
 
-    public MetaPurgeProcessor(File referenceFile, File targetFile, boolean delete, boolean view, boolean simple, Set<String> mimeFilter) {
+    public MetaPurgeProcessor(File referenceFile,
+                              File targetFile,
+                              boolean delete,
+                              boolean view,
+                              boolean simple,
+                              Set<String> mimeFilter) {
         this.referenceFile = referenceFile;
-        this.targetFile = targetFile;
-        this.delete = delete;
-        this.view = view;
-        this.simple = simple;
-        this.mimeFilter = mimeFilter != null ? mimeFilter : Collections.emptySet();
+        this.targetFile    = targetFile;
+        this.delete        = delete;
+        this.view          = view;
+        this.simple        = simple;
+        this.mimeFilter    = mimeFilter != null ? mimeFilter : Collections.emptySet();
     }
 
     @Override
@@ -34,54 +39,61 @@ public class MetaPurgeProcessor implements Processor {
         List<MetaItem> refItems = MetaFileUtils.readMetaFile(referenceFile);
         List<MetaItem> tgtItems = MetaFileUtils.readMetaFile(targetFile);
 
-        // Build reference hash set
-        Set<String> refHashes = refItems.stream()
-                .map(MetaItem::hash)
+        // Build reference key set (hash + full MIME)
+        Set<String> refKeys = refItems.stream()
+                .map(i -> i.hash() + ":" + i.mimeType())
                 .collect(Collectors.toSet());
 
         // Partition target items
         List<MetaItem> retained = new ArrayList<>();
         Map<String,List<MetaItem>> grouped = new LinkedHashMap<>();
         for (MetaItem item : tgtItems) {
-            String hash = item.hash();
-            // Filter by reference and optional mime
-            if (refHashes.contains(hash) && (mimeFilter.isEmpty() || mimeFilter.contains(MimeUtils.getMajorType(item.mimeType())))) {
-                grouped.computeIfAbsent(hash, h -> new ArrayList<>()).add(item);
+            String key = item.hash() + ":" + item.mimeType();
+            // Filter by reference key and optional major MIME filter
+            if (refKeys.contains(key)
+                    && (mimeFilter.isEmpty() || mimeFilter.contains(MimeUtils.getMajorType(item.mimeType())))) {
+                grouped.computeIfAbsent(key, h -> new ArrayList<>()).add(item);
             } else {
                 retained.add(item);
             }
         }
 
         long bytesSaved = 0L;
-        int refCount = refHashes.size();
-        int matchedCount = 0;
+        int refCount    = refKeys.size();
+        int matchedCount= 0;
 
         // Process each group
         for (Map.Entry<String, List<MetaItem>> e : grouped.entrySet()) {
-            String hash = e.getKey();
+            String key       = e.getKey();               // "<hash>:<mimeType>"
             List<MetaItem> items = e.getValue();
-            int count = items.size();
-            matchedCount += count;
+            int count       = items.size();
+            matchedCount   += count;
 
             if (!simple) {
-                System.out.printf("MATCH : %s\t%,d%n", hash, count);
+                System.out.printf("MATCH : %s\t%,d%n", key, count);
             }
-            // View primary if requested
-            if (view && MimeUtils.isImage(items.get(0).mimeType())) {
-                new ImageViewer().view(items.get(0));
+
+            // Preview first item if image
+            MetaItem exemplar = items.get(0);
+            if (view && MimeUtils.isImage(exemplar.mimeType())) {
+                new ImageViewer().view(exemplar);
             }
-            // Print each path
+
+            // Print and optionally delete each matched item
             for (MetaItem it : items) {
+                Path p = Paths.get(it.basePath(), it.filePath());
                 if (simple) {
-                    System.out.println(Paths.get(it.basePath(), it.filePath()));
+                    System.out.println(p);
                 } else {
                     System.out.printf("  - %s%n", it.filePath());
                 }
                 bytesSaved += it.fileSize();
+
                 if (delete) {
                     deleteFile(it);
                 }
             }
+
             if (!simple) {
                 System.out.println();
             }
@@ -90,7 +102,7 @@ public class MetaPurgeProcessor implements Processor {
         // Summary
         if (!simple) {
             System.out.println("\nSUMMARY");
-            System.out.printf("  Matched    : %d item(s) from %s using %d reference hash(es)%n",
+            System.out.printf("  Matched    : %d item(s) from %s using %d reference key(s)%n",
                     matchedCount, targetFile.getName(), refCount);
             System.out.printf("  Deleted    : %d file(s)%n", matchedCount);
             System.out.printf("  Retained   : %d entry(ies)%n", retained.size());
@@ -102,10 +114,11 @@ public class MetaPurgeProcessor implements Processor {
         try {
             Path p = Paths.get(item.basePath(), item.filePath());
             boolean removed = Files.deleteIfExists(p);
-            if (!simple) System.out.printf("Deleted: %b %s%n", removed, p);
-        } catch (IOException e) {
+            if (!simple) {
+                System.out.printf("Deleted: %b %s%n", removed, p);
+            }
+        } catch (Exception e) {
             System.err.printf("Failed to delete %s: %s%n", item.filePath(), e.getMessage());
         }
     }
-
 }
