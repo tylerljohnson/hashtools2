@@ -42,8 +42,8 @@ public class MetaCleanProcessor implements Processor {
     @Override
     public void run() {
         for (File metaFile : metaFiles) {
-            List<MetaItem> items = MetaFileUtils.readMetaFile(metaFile);
-            List<MetaItem> kept  = new ArrayList<>();
+            List<MetaItem> items          = MetaFileUtils.readMetaFile(metaFile);
+            List<MetaItem> kept           = new ArrayList<>();
             List<String>   removalReasons = new ArrayList<>();
 
             // 1) Verify all basePaths up front, using shared cache
@@ -70,15 +70,22 @@ public class MetaCleanProcessor implements Processor {
 
             // 3) Process each entry
             for (MetaItem it : items) {
-                progress.step();
-                progress.render();
-
+                // Determine if this item will be removed
                 Path path = Paths.get(it.basePath(), it.filePath());
+                boolean willRemove = false;
                 String reason = !fullCheck
                         ? (Files.isRegularFile(path) ? null : "file missing")
                         : checkItemDeep(it, path);
+                if (reason != null) {
+                    willRemove = true;
+                }
 
-                if (reason == null) {
+                // Update progress (done + removal count)
+                progress.step(willRemove);
+                progress.render();
+
+                // Record keep or remove
+                if (!willRemove) {
                     kept.add(it);
                     if (verbose) System.out.printf("%nKEEP   : %s%n", path);
                 } else {
@@ -146,46 +153,58 @@ public class MetaCleanProcessor implements Processor {
     }
 
     private interface ProgressBar {
-        void step();
+        void step(boolean removed);
         void render();
-        default void finish() { /* e.g. newline if needed */ }
+        default void finish() { /* no-op or newline */ }
     }
 
     private class NoOpProgressBar implements ProgressBar {
-        @Override public void step()   { }
-        @Override public void render() { }
+        @Override public void step(boolean removed)   {}
+        @Override public void render() {}
     }
 
     private class SimpleProgressBar implements ProgressBar {
         private final int total;
         private final int width;
+        private final int decimals;
         private int done;
+        private int removedCount;
 
         SimpleProgressBar(int total) {
             this.total = total;
             this.done  = 0;
+            this.removedCount = 0;
             int cols = 80;
             String env = System.getenv("COLUMNS");
             if (env != null) {
                 try { cols = Integer.parseInt(env); } catch (NumberFormatException ignored) {}
             }
             this.width = Math.max(10, (int)(cols * 0.75));
+
+            double increment = 100.0 / total;
+            this.decimals = increment < 1.0
+                    ? (int)Math.ceil(-Math.log10(increment))
+                    : 0;
         }
 
         @Override
-        public void step() {
+        public void step(boolean removed) {
             done++;
+            if (removed) removedCount++;
         }
 
         @Override
         public void render() {
-            double pct = (double) done / total;
-            int filled = (int) Math.round(pct * width);
+            double pct = (double) done / total * 100.0;
+            String fmtStr = "%." + decimals + "f%%";
+            String pctStr = String.format(fmtStr, pct);
+
+            int filled = (int)Math.round((double)done/total * width);
             StringBuilder bar = new StringBuilder(width);
             for (int i = 0; i < filled; i++)   bar.append('#');
             for (int i = filled; i < width; i++) bar.append(' ');
-            int percent = (int) Math.round(pct * 100);
-            System.out.printf("\r[%s] %3d%%", bar, percent);
+
+            System.out.printf("\r[%s] %s  changed: %d", bar, pctStr, removedCount);
             System.out.flush();
         }
 
