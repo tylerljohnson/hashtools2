@@ -16,8 +16,8 @@ public class MetaCleanSubCommand implements Runnable {
             description = "One or more .meta files to clean")
     private File[] metaFiles;
 
-    @Option(names = {"--dry-run"}, negatable = true, defaultValue = "true",
-            description = "Show entries that would be removed without touching files (default: true)")
+    @Option(names = {"--no-dryrun"}, defaultValue = "true",
+            description = "Show entries that would be removed without touching files (default: f)")
     private boolean dryRun;
 
     @Option(names = {"--verbose"}, negatable = true, defaultValue = "false",
