@@ -30,17 +30,18 @@ public class MetaRemoveProcessor implements Processor {
     private final File   referenceMeta;
     private final File[] targets;
     private final boolean debug;
-    private final boolean info = false; // always print info messages
+    private final boolean info;
 
     /**
      * @param referenceMeta  the .meta file to read entries from
      * @param targets        one-or-more absolute files or directories to process
      * @param debug          if true, print debug info about grouping and matching
      */
-    public MetaRemoveProcessor(File referenceMeta, File[] targets, boolean debug) {
+    public MetaRemoveProcessor(File referenceMeta, File[] targets, boolean debug, boolean info) {
         this.referenceMeta = referenceMeta;
         this.targets       = targets;
         this.debug         = debug;
+        this.info          = info;
     }
 
     @Override

@@ -24,8 +24,12 @@ public class MetaRemoveSubCommand implements Runnable {
             description = "Print debug information about grouping and matching (default: false)")
     private boolean debug = false;
 
+    @Option(names = "--info", defaultValue = "false",
+            description = "Print info information about grouping and matching (default: false)")
+    private boolean info = false;
+
     @Override
     public void run() {
-        new MetaRemoveProcessor(referenceMeta, targets, debug).run();
+        new MetaRemoveProcessor(referenceMeta, targets, debug, info).run();
     }
 }
