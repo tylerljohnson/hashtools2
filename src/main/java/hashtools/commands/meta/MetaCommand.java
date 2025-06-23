@@ -3,6 +3,7 @@ package hashtools.commands.meta;
 import hashtools.commands.meta.clean.*;
 import hashtools.commands.meta.intersect.*;
 import hashtools.commands.meta.purge.*;
+import hashtools.commands.meta.remove.*;
 import hashtools.commands.meta.select.*;
 import hashtools.commands.meta.split.*;
 import hashtools.commands.meta.summary.*;
@@ -22,6 +23,7 @@ import picocli.CommandLine.*;
             MetaViewSubCommand.class,
             MetaSelectSubCommand.class,
             MetaCleanSubCommand.class,
+            MetaRemoveSubCommand.class,
         },
         mixinStandardHelpOptions = true,
         usageHelpAutoWidth = true

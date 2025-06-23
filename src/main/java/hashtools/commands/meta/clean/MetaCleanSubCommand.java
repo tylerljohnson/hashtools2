@@ -18,7 +18,7 @@ public class MetaCleanSubCommand implements Runnable {
 
     @Option(names = {"--no-dryrun"}, defaultValue = "true",
             description = "Show entries that would be removed without touching files (default: f)")
-    private boolean dryRun;
+    private boolean dryRun = true;
 
     @Option(names = {"--verbose"}, negatable = true, defaultValue = "false",
             description = "Log each entry kept or removed (default: false)")
