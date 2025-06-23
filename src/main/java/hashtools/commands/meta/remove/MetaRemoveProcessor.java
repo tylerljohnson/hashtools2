@@ -30,6 +30,7 @@ public class MetaRemoveProcessor implements Processor {
     private final File   referenceMeta;
     private final File[] targets;
     private final boolean debug;
+    private final boolean info = false; // always print info messages
 
     /**
      * @param referenceMeta  the .meta file to read entries from
@@ -45,55 +46,47 @@ public class MetaRemoveProcessor implements Processor {
     @Override
     public void run() {
         // 1) Load and index
-        if (debug) {
-            System.out.printf("[DEBUG] Loading reference meta: %s%n", referenceMeta);
-        }
+        debug("Loading reference meta: %s", referenceMeta);
         List<MetaItem> items = MetaFileUtils.readMetaFile(referenceMeta);
 
-        if (debug) {
-            System.out.printf("[DEBUG] Read %,d entries from meta%n", items.size());
-        }
+        debug("Read %,d entries from meta", items.size());
         Map<Path,MetaItem> index = indexByPath(items);
 
-        if (debug) {
-            System.out.printf("[DEBUG] Built index with %,d paths%n", index.size());
-        }
+        debug("Built index with %,d paths", index.size());
 
         // 2) Discover target files
-        if (debug) System.out.println("[DEBUG] Discovering target files...");
+        debug("Discovering target files...");
         Set<Path> allTargets = collectAllTargetFiles();
-        if (debug) System.out.printf("[INFO] Found %,d target file(s)%n", allTargets.size());
+        info("Found %,d target file(s)", allTargets.size());
 
         // 3) Match targets in the index
         Set<MetaItem> matchedEntries = new LinkedHashSet<>();
         List<String>  noMetaLines    = new ArrayList<>();
 
         for (Path path : allTargets) {
-            if (debug) System.out.printf("[DEBUG] Looking up path: %s%n", path);
+            debug("Looking up path: %s", path);
             MetaItem entry = index.get(path);
             if (entry != null) {
                 if (debug) {
                     String key = entry.hash() + ":" + entry.mimeType();
-                    System.out.printf("[DEBUG]  → Matched meta entry, key=%s%n", key);
+                    debug(" → Matched meta entry, key=%s", key);
                 }
                 matchedEntries.add(entry);
             } else {
-                if (debug) {
-                    System.out.printf("[DEBUG]  → No meta entry for %s%n", path);
-                }
+                debug(" → No meta entry for %s", path);
                 noMetaLines.add(formatLogLine(RemovalStatus.NO_META, path));
             }
         }
-        if (debug) System.out.printf("[INFO] Matched %,d entries in meta%n", matchedEntries.size());
+        info("Matched %,d entries in meta", matchedEntries.size());
 
         // 4) Collect all other entries in each matched key’s group
-        if (debug) System.out.println("[DEBUG] Collecting removal candidates...");
+        debug("Collecting removal candidates...");
         Set<MetaItem> toRemove = collectToRemove(items, matchedEntries);
-        if (debug) System.out.printf("[INFO] Collected %,d entries to remove%n", toRemove.size());
+        debug("Collected %,d entries to remove", toRemove.size());
 
         // 5) Write logs
         Path logPath = Paths.get(System.getProperty("user.home"), "bin", "meta-remove.log");
-        if (debug) System.out.printf("[DEBUG] Writing log to %s%n", logPath);
+        debug("Writing log to %s", logPath);
         writeLogLines(logPath, noMetaLines, toRemove);
 
         // 6) Summary
@@ -141,10 +134,9 @@ public class MetaRemoveProcessor implements Processor {
             List<MetaItem> group = groups.getOrDefault(key, List.of());
 
             if (debug) {
-                System.out.printf("[DEBUG] key=%s → group size=%d%n", key, group.size());
+                debug("key=%s → group size=%d", key, group.size());
                 for (MetaItem member : group) {
-                    System.out.printf("[DEBUG]   member: %s/%s%n",
-                            member.basePath(), member.filePath());
+                    debug("   member: %s/%s", member.basePath(), member.filePath());
                 }
             }
 
@@ -155,10 +147,24 @@ public class MetaRemoveProcessor implements Processor {
         return toRemove;
     }
 
-    /** Formats a log line: timestamp, status, and file path. */
-    private String formatLogLine(RemovalStatus status, Path p) {
-        String ts = LocalDateTime.now().format(LOG_FMT);
-        return String.format("%s\t%s\t%s", ts, status.name().toLowerCase(), p);
+    /** Formats a log line: timestamp, status, hash, mimetype and file path. */
+    private String formatLogLine(RemovalStatus status, MetaItem item) {
+        return String.format(
+                "%s\t%s\t%s\t%s\t%s%n",
+                LocalDateTime.now().format(LOG_FMT),
+                status.name().toLowerCase(),
+                item.hash(),
+                item.mimeType(),
+                Paths.get(item.basePath(), item.filePath())
+        );
+    }
+    private String formatLogLine(RemovalStatus status, Path path) {
+        return String.format(
+                "%s\t%s\t%s%n",
+                LocalDateTime.now().format(LOG_FMT),
+                status.name().toLowerCase(),
+                path.toAbsolutePath().normalize()
+        );
     }
 
     /** Appends all NO_META and removal entries to the log file. */
@@ -185,7 +191,7 @@ public class MetaRemoveProcessor implements Processor {
                 RemovalStatus status = Files.exists(p) && Files.isRegularFile(p)
                         ? RemovalStatus.DELETE
                         : RemovalStatus.NOT_FOUND;
-                writer.write(formatLogLine(status, p));
+                writer.write(formatLogLine(status, it));
                 writer.newLine();
             }
         } catch (IOException e) {
@@ -197,6 +203,21 @@ public class MetaRemoveProcessor implements Processor {
     private void printSummary(int matchedCount,
                               int removeCount,
                               Path logPath) {
-        //System.out.printf("[SUMMARY] Matched: %d  ToRemove: %d  Logged → %s%n", matchedCount, removeCount, logPath);
+        info("SUMMARY: Matched: %d  ToRemove: %d  Logged → %s", matchedCount, removeCount, logPath);
     }
+
+    private void info(String format, Object ... args) {
+        if (info) {
+            out("info", format, args);
+        }
+    }
+    private void debug(String format, Object ... args) {
+        if (debug) {
+            out("debug", format, args);
+        }
+    }
+    private void out(String level, String format, Object ... args) {
+        System.out.printf("[%s] %s%n", level.toUpperCase(), String.format(format, args));
+    }
+
 }
