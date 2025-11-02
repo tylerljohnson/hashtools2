@@ -6,20 +6,11 @@
 
 -- Drop old/new views defensively
 DROP VIEW IF EXISTS
-  -- New names
   files, files_primary, files_redundant,
   media, media_primary, media_redundant,
   images, images_primary, images_redundant,
   videos, videos_primary, videos_redundant,
   audio,  audio_primary,  audio_redundant,
-  -- Old dedupe names
-  hashes_dedupe, hashes_dedupe_dupes,
-  hashes_dedupe_media, hashes_dedupe_media_dupes,
-  hashes_dedupe_images, hashes_dedupe_images_dupes,
-  hashes_dedupe_videos, hashes_dedupe_videos_dupes,
-  hashes_dedupe_audio,  hashes_dedupe_audio_dupes,
-  -- Old mime filter views
-  hashes_media, hashes_images, hashes_videos, hashes_audio
 CASCADE;
 
 -- =========================================================
@@ -32,6 +23,8 @@ WITH ranked AS (
     mime_type,
     last_modified,
     file_size AS length,
+    base_path,
+    file_path,
     full_path,
     DENSE_RANK() OVER (ORDER BY hash, mime_type) AS group_num,
     ROW_NUMBER() OVER (
@@ -42,7 +35,7 @@ WITH ranked AS (
   FROM hashes
 )
 SELECT
-  group_num, hash, last_modified, mime_type, length, full_path,
+  group_num, hash, last_modified, mime_type, length, base_path, file_path, full_path,
   CASE WHEN rn = 1 THEN 'primary' ELSE 'redundant' END AS disposition
 FROM ranked;
 
@@ -62,6 +55,8 @@ WITH ranked AS (
     mime_type,
     last_modified,
     file_size AS length,
+    base_path,
+    file_path,
     full_path,
     DENSE_RANK() OVER (ORDER BY hash, mime_type) AS group_num,
     ROW_NUMBER() OVER (
@@ -73,7 +68,7 @@ WITH ranked AS (
   WHERE mime_type LIKE ANY (ARRAY['image/%','video/%','audio/%'])
 )
 SELECT
-  group_num, hash, last_modified, mime_type, length, full_path,
+  group_num, hash, last_modified, mime_type, length, base_path, file_path, full_path,
   CASE WHEN rn = 1 THEN 'primary' ELSE 'redundant' END AS disposition
 FROM ranked;
 
@@ -93,6 +88,8 @@ WITH ranked AS (
     mime_type,
     last_modified,
     file_size AS length,
+    base_path,
+    file_path,
     full_path,
     DENSE_RANK() OVER (ORDER BY hash, mime_type) AS group_num,
     ROW_NUMBER() OVER (
@@ -104,7 +101,7 @@ WITH ranked AS (
   WHERE mime_type LIKE 'image/%'
 )
 SELECT
-  group_num, hash, last_modified, mime_type, length, full_path,
+  group_num, hash, last_modified, mime_type, length, base_path, file_path, full_path,
   CASE WHEN rn = 1 THEN 'primary' ELSE 'redundant' END AS disposition
 FROM ranked;
 
@@ -124,6 +121,8 @@ WITH ranked AS (
     mime_type,
     last_modified,
     file_size AS length,
+    base_path,
+    file_path,
     full_path,
     DENSE_RANK() OVER (ORDER BY hash, mime_type) AS group_num,
     ROW_NUMBER() OVER (
@@ -135,7 +134,7 @@ WITH ranked AS (
   WHERE mime_type LIKE 'video/%'
 )
 SELECT
-  group_num, hash, last_modified, mime_type, length, full_path,
+  group_num, hash, last_modified, mime_type, length, base_path, file_path, full_path,
   CASE WHEN rn = 1 THEN 'primary' ELSE 'redundant' END AS disposition
 FROM ranked;
 
@@ -155,6 +154,8 @@ WITH ranked AS (
     mime_type,
     last_modified,
     file_size AS length,
+    base_path,
+    file_path,
     full_path,
     DENSE_RANK() OVER (ORDER BY hash, mime_type) AS group_num,
     ROW_NUMBER() OVER (
@@ -166,7 +167,7 @@ WITH ranked AS (
   WHERE mime_type LIKE 'audio/%'
 )
 SELECT
-  group_num, hash, last_modified, mime_type, length, full_path,
+  group_num, hash, last_modified, mime_type, length, base_path, file_path, full_path,
   CASE WHEN rn = 1 THEN 'primary' ELSE 'redundant' END AS disposition
 FROM ranked;
 
