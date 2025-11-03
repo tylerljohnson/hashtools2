@@ -64,7 +64,6 @@ while [[ $# -gt 0 ]]; do
       ;;
     --fix) DO_FIX=1; shift;;
     --apply) DRY_RUN=0; shift;;
-    --dry-run) DRY_RUN=1; shift;;
     --force) FORCE=1; shift;;
     --update-db) UPDATE_DB=1; shift;;
     --help) usage; exit 0;;
@@ -125,28 +124,31 @@ confirm() {
 }
 
 do_swap_timestamps() {
-  local primary_path="$1" archive_path="$2"
-  [[ -f "$primary_path" ]] || { echo "Primary missing: $primary_path"; return 1; }
-  [[ -f "$archive_path" ]] || { echo "Archive missing: $archive_path"; return 1; }
+   local primary_path="$1" archive_path="$2"
+   [[ -f "$primary_path" ]] || { echo "Primary missing: $primary_path"; return 1; }
+   [[ -f "$archive_path" ]] || { echo "Archive missing: $archive_path"; return 1; }
 
-  if [[ $DRY_RUN -eq 1 ]]; then
-    echo "DRY-RUN: would swap timestamps: primary='$primary_path' <-> archive='$archive_path'"
-    return 0
-  fi
+   #echo "BEFORE:"
+   #local fmt="%Y-%m-%d-%H:%M:%S"
+   #stat -f "  primary: %Sm (mtime)  %Sa (atime)  %Sc (ctime)  %SB (birth)" -t "$fmt" "$primary_path"
+   #stat -f "  archive: %Sm (mtime)  %Sa (atime)  %Sc (ctime)  %SB (birth)" -t "$fmt" "$archive_path"
 
-  # Safe swap using temporary file to hold original archive mtime
-  tmp=$(mktemp) || return 1
-  # set tmp's mtime to archive's mtime
-  touch -r "$archive_path" "$tmp" || { rm -f "$tmp"; return 1; }
+   if [[ "${DRY_RUN:-0}" -eq 1 ]]; then
+     echo "DRY-RUN: would swap times."
+     return 0
+   fi
 
-  # make archive older (use primary's timestamp)
-  touch -r "$primary_path" "$archive_path" || { rm -f "$tmp"; return 1; }
+   local tmp
+   tmp=$(mktemp) || return 1
+   trap 'rm -f "$tmp"' RETURN
 
-  # make primary newer (use original archive timestamp stored in tmp)
-  touch -r "$tmp" "$primary_path" || { rm -f "$tmp"; return 1; }
+   touch -r "$archive_path" "$tmp"          || return 1
+   touch -r "$primary_path" "$archive_path" || return 1
+   touch -r "$tmp" "$primary_path"          || return 1
 
-  rm -f "$tmp"
-  echo "Swapped mtimes: primary='$primary_path' <-> archive='$archive_path'"
+   #echo "AFTER:"
+   #stat -f "  primary: %Sm (mtime)  %Sa (atime)  %Sc (ctime)  %SB (birth)" -t "$fmt" "$primary_path"
+   #stat -f "  archive: %Sm (mtime)  %Sa (atime)  %Sc (ctime)  %SB (birth)" -t "$fmt" "$archive_path"
 }
 
 process_rows() {
@@ -189,11 +191,15 @@ process_rows() {
     fi
 
     if [[ $DO_FIX -eq 1 ]]; then
+      # Construct full paths by combining base_path and file_path
+      local primary_full_path="$primary_base/$primary_path"
+      local archive_full_path="$archive_base/$archive_path"
+
       if [[ $DRY_RUN -eq 0 ]]; then
-        echo "About to swap timestamps for: $primary_path <-> $archive_path"
+        echo "About to swap timestamps for: $primary_full_path <-> $archive_full_path"
         confirm || { echo "Skipping (not confirmed)"; continue; }
       fi
-      do_swap_timestamps "$primary_path" "$archive_path" || echo "Failed to swap for $primary_path"
+      do_swap_timestamps "$primary_full_path" "$archive_full_path" || echo "Failed to swap for $primary_full_path"
       if [[ $UPDATE_DB -eq 1 ]]; then
         echo "NOTE: --update-db requested but DB update not implemented in this scaffold."
       fi

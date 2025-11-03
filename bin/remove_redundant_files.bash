@@ -90,7 +90,7 @@ while IFS=$'\t' read -r mime hash path; do
   if [[ "$FORCE" == false ]]; then
     # DRY-RUN: detect state, no changes
     if [[ -f "$path" ]]; then
-      echo "🔎 ${hash} ${mime} (would remove)"
+      echo "🔎 ${hash} ${mime}	${path} (would remove)"
       echo "DRY ${hash} ${mime} ${path}" >> "$LOGFILE"
     else
       echo -e "⚠️  ${hash} ${mime} (missing file; DB row stale)"

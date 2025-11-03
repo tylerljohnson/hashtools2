@@ -8,26 +8,17 @@
 #   ./load_hashes.bash <path-to-file>
 #   ./load_hashes.bash all.hashes
 #
-# Options:
-#   --force   Skip confirmation prompt.
-#
+
 set -euo pipefail
 
 PGHOST="${PGHOST:-cooper}"
 PGUSER="${PGUSER:-tyler}"
 PGDATABASE="${PGDATABASE:-tyler}"
 
-FORCE=false
-
 # --- Parse args ---
 if [[ $# -lt 1 ]]; then
-  echo "Usage: $0 [--force] <file.hashes>" >&2
+  echo "Usage: $0 <file.hashes>" >&2
   exit 1
-fi
-
-if [[ "$1" == "--force" ]]; then
-  FORCE=true
-  shift
 fi
 
 HASHFILE="$1"
@@ -38,17 +29,6 @@ if [[ ! -f "$HASHFILE" ]]; then
 fi
 
 echo "[*] Target database: $PGDATABASE@$PGHOST"
-echo "[*] User: $PGUSER"
-echo "[*] File: $HASHFILE"
-
-if [[ "$FORCE" == false ]]; then
-  echo "⚠️  This will insert all rows from '$HASHFILE' into the 'hashes' table."
-  read -rp "Type 'yes' to continue: " confirm
-  if [[ "$confirm" != "yes" ]]; then
-    echo "Aborted."
-    exit 1
-  fi
-fi
 
 # --- Load the data ---
 echo "[*] Importing data..."
