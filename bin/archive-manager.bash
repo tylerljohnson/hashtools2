@@ -82,8 +82,10 @@ SELECT f.hash,
        f.mime_type,
        f.base_path as primary_base,
        f.file_path as primary_path,
+       f.last_modified as primary_last_modified,
        a.base_path as archive_base,
-       a.file_path as archive_path
+       a.file_path as archive_path,
+       a.last_modified as archive_last_modified
 FROM files f
 JOIN files a ON a.hash = f.hash
             AND a.mime_type = f.mime_type
@@ -152,13 +154,13 @@ process_rows() {
   rows=$(run_query) || return $?
 
   # psql with -A -F '\t' prints rows as tab-separated. Parse each line.
-  while IFS=$'\t' read -r hash mime primary_base primary_path archive_base archive_path; do
+  while IFS=$'\t' read -r hash mime primary_base primary_path primary_ts archive_base archive_path archive_ts; do
     # skip empty lines
     [[ -z "$hash" ]] && continue
     
-    # Get timestamps
-    primary_ts="$(stat -f "%Sm" -t "%Y-%m-%d %H:%M:%S" "$primary_path" 2>/dev/null || echo 'N/A')"
-    archive_ts="$(stat -f "%Sm" -t "%Y-%m-%d %H:%M:%S" "$archive_path" 2>/dev/null || echo 'N/A')"
+    # Timestamps come directly from database
+    primary_ts="${primary_ts:-N/A}"
+    archive_ts="${archive_ts:-N/A}"
     
     if [[ "$FORMAT" == "json" ]]; then
       printf '{\n'
@@ -178,9 +180,9 @@ process_rows() {
     else
       # First line: hash and mime type
       printf 'detail:\t%s\t%s\n' "$hash" "$mime"
-      # Second line: primary file info
+      # Second line: primary file info with DB timestamp
       printf 'primary:\t%s\t%s\t%s\n' "$primary_ts" "$primary_base" "$primary_path"
-      # Third line: archive file info
+      # Third line: archive file info with DB timestamp
       printf 'archive:\t%s\t%s\t%s\n' "$archive_ts" "$archive_base" "$archive_path"
       # Blank line separator
       echo
