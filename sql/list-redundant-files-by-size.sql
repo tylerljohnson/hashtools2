@@ -4,18 +4,18 @@
 -- are truncated to one decimal place so they stay in the 1.0–999.9 range per unit.
 WITH sized AS (
     SELECT
-        hash,
+--        hash,
         mime_type,
         COUNT(*)    AS file_count,
         SUM(length) AS bytes
     FROM files
-    WHERE disposition = 'redundant'
+   WHERE disposition = 'redundant'
     GROUP BY
-        hash,
-        mime_type
+--      hash,
+      mime_type
 )
 SELECT
-    hash,
+--    hash,
     mime_type,
     file_count,
     CASE
