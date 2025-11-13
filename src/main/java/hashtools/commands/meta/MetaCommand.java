@@ -1,5 +1,14 @@
-package hashtools.commands;
+package hashtools.commands.meta;
 
+import hashtools.commands.meta.clean.*;
+import hashtools.commands.meta.intersect.*;
+import hashtools.commands.meta.purge.*;
+import hashtools.commands.meta.remove.*;
+import hashtools.commands.meta.select.*;
+import hashtools.commands.meta.split.*;
+import hashtools.commands.meta.summary.*;
+import hashtools.commands.meta.validate.*;
+import hashtools.commands.meta.view.*;
 import picocli.CommandLine.*;
 
 @Command(
@@ -12,6 +21,9 @@ import picocli.CommandLine.*;
             MetaIntersectSubCommand.class,
             MetaPurgeSubCommand.class,
             MetaViewSubCommand.class,
+            MetaSelectSubCommand.class,
+            MetaCleanSubCommand.class,
+            MetaRemoveSubCommand.class,
         },
         mixinStandardHelpOptions = true,
         usageHelpAutoWidth = true

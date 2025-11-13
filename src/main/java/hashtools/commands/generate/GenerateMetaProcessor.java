@@ -1,5 +1,6 @@
-package hashtools.processors;
+package hashtools.commands.generate;
 
+import hashtools.commands.*;
 import hashtools.models.*;
 import hashtools.utils.*;
 import org.apache.tika.*;

@@ -1,6 +1,5 @@
-package hashtools.commands;
+package hashtools.commands.meta.summary;
 
-import hashtools.processors.*;
 import picocli.CommandLine.*;
 
 import java.io.*;

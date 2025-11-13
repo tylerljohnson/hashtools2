@@ -1,4 +1,6 @@
-package hashtools.processors;
+package hashtools.commands.meta.split;
+
+import hashtools.commands.*;
 
 import java.io.*;
 import java.nio.file.*;

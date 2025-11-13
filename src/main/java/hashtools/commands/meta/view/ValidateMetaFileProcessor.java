@@ -1,4 +1,6 @@
-package hashtools.processors;
+package hashtools.commands.meta.view;
+
+import hashtools.commands.*;
 
 import java.io.*;
 
