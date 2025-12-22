@@ -23,7 +23,7 @@ public final class DbConsistencyProcessor implements Processor {
     // --- Database Configuration ---
     private static final String DB_URL  = "jdbc:postgresql://cooper:5432/tyler";
     private static final String DB_USER = "tyler";
-    private static final String DB_PASS = "tyler";
+    private static final String DB_PASS = "cometdog";
 
     // --- Performance & Tuning Constants ---
     private static final int JDBC_FETCH_SIZE      = 10_000; // Rows per network trip from Postgres
