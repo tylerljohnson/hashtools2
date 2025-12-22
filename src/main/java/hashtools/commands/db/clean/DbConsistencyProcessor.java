@@ -19,6 +19,7 @@ import java.util.stream.*;
  * 4. Observability: Provides a real-time, column-formatted dashboard.
  */
 public final class DbConsistencyProcessor implements Processor {
+    private boolean deleteRows = false;
 
     // --- Database Configuration ---
     private static final String DB_URL  = "jdbc:postgresql://cooper:5432/tyler";
@@ -30,6 +31,7 @@ public final class DbConsistencyProcessor implements Processor {
     private static final int PROGRESS_INTERVAL_MS = 250;    // Refresh rate of console UI
     private static final int UI_COLUMN_WIDTH      = 25;     // Spacing for console columns
     private static final long MAX_RUNTIME_HOURS   = 12;     // Absolute cap on execution time
+    private static final int DELETE_BATCH_SIZE    = 1_000;  // Size of JDBC batches for deletions
 
     // --- ANSI UI Controls ---
     private static final String ANSI_CARRIAGE_RETURN = "\r";
@@ -39,11 +41,18 @@ public final class DbConsistencyProcessor implements Processor {
     private final Map<String, AtomicLong> progressMap = new ConcurrentHashMap<>();
     private final ScheduledExecutorService progressReporter = Executors.newSingleThreadScheduledExecutor();
 
+    public DbConsistencyProcessor(boolean deleteRows) {
+        this.deleteRows = deleteRows;
+    }
+
     /**
      * Entry point for the consistency check process.
      */
     public void run() {
         System.out.println("Initializing DbConsistencyChecker...");
+        if (deleteRows) {
+            System.out.println("WARNING: deleteRows is TRUE. Missing records will be DELETED from the database.");
+        }
 
         try (var executor = Executors.newVirtualThreadPerTaskExecutor();
              Connection conn = DriverManager.getConnection(DB_URL, DB_USER, DB_PASS)) {
@@ -147,27 +156,52 @@ public final class DbConsistencyProcessor implements Processor {
 
             // FetchSize + AutoCommit(false) are the keys to cursor-based streaming in Postgres
             try (Connection conn = DriverManager.getConnection(DB_URL, DB_USER, DB_PASS);
-                 BufferedWriter writer = new BufferedWriter(new FileWriter(tsvPath.toFile()))) {
+                 BufferedWriter writer = deleteRows ? null : new BufferedWriter(new FileWriter(tsvPath.toFile()))) {
 
                 conn.setAutoCommit(false);
-                String sql = "SELECT id, full_path FROM hashes WHERE base_path = ?";
+                String selectSql = "SELECT id, full_path FROM hashes WHERE base_path = ?";
+                String deleteSql = "DELETE FROM hashes WHERE id = ?";
 
-                try (PreparedStatement pstmt = conn.prepareStatement(sql)) {
-                    pstmt.setFetchSize(JDBC_FETCH_SIZE);
-                    pstmt.setString(1, basePath);
+                try (PreparedStatement selectPstmt = conn.prepareStatement(selectSql);
+                     PreparedStatement deletePstmt = conn.prepareStatement(deleteSql)) {
 
-                    try (ResultSet rs = pstmt.executeQuery()) {
+                    selectPstmt.setFetchSize(JDBC_FETCH_SIZE);
+                    selectPstmt.setString(1, basePath);
+
+                    try (ResultSet rs = selectPstmt.executeQuery()) {
+                        int batchCount = 0;
                         while (rs.next()) {
                             long id = rs.getLong("id");
                             String fullPathStr = rs.getString("full_path");
 
                             // Check filesystem; NOFOLLOW_LINKS is faster on Linux ext4
                             if (!Files.exists(Path.of(fullPathStr), LinkOption.NOFOLLOW_LINKS)) {
-                                writer.write(id + "\t" + fullPathStr + "\n");
+                                if (deleteRows) {
+                                    deletePstmt.setLong(1, id);
+                                    deletePstmt.addBatch();
+                                    batchCount++;
+
+                                    if (batchCount >= DELETE_BATCH_SIZE) {
+                                        deletePstmt.executeBatch();
+                                        conn.commit();
+                                        batchCount = 0;
+                                    }
+                                } else {
+                                    writer.write(id + "\t" + fullPathStr + "\n");
+                                }
                             }
                             counter.incrementAndGet();
                         }
-                        writer.flush();
+
+                        // Final flush/commit
+                        if (deleteRows) {
+                            if (batchCount > 0) {
+                                deletePstmt.executeBatch();
+                                conn.commit();
+                            }
+                        } else if (writer != null) {
+                            writer.flush();
+                        }
                     }
                 }
             } catch (Exception e) {
