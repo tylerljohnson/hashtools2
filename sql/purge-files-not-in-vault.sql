@@ -29,6 +29,7 @@
 --   other_base_path    - base_path of the duplicate.
 --   other_full_path    - full_path of the duplicate.
 --
+
 WITH vault_primary AS (
     SELECT
         hash,
@@ -38,7 +39,7 @@ WITH vault_primary AS (
         full_path,
         last_modified
     FROM files_primary
-    WHERE base_path = :'vault_base'
+    WHERE base_path = '/home/tyler/packrat/vault/secret' and mime_type like 'image%'
 ),
      dupes AS (
          SELECT
@@ -56,7 +57,7 @@ WITH vault_primary AS (
                        ON f.hash = vp.hash
                            AND f.mime_type = vp.mime_type
                            AND f.full_path <> vp.full_path
-                           AND f.base_path <> :'vault_base'          -- never report vault files as "other"
+                           AND f.base_path <> '/home/tyler/packrat/vault/secret'          -- never report vault files as "other"
      )
 SELECT
     hash,

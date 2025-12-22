@@ -10,6 +10,7 @@ BEGIN
     EXECUTE 'DROP INDEX IF EXISTS idx_hashes_last_modified;';
     EXECUTE 'DROP INDEX IF EXISTS idx_hashes_bp_hash_mime_time_id;';
     EXECUTE 'DROP INDEX IF EXISTS idx_hashes_hash_mime_time_id;';
+    EXECUTE 'DROP INDEX IF EXISTS idx_hashes_covering_window;';
 END$$;
 
 -- Recreate indexes
@@ -20,3 +21,5 @@ CREATE INDEX idx_hashes_bp_hash_mime_time_id
   ON hashes (base_path, hash, mime_type, last_modified, id);
 CREATE INDEX idx_hashes_hash_mime_time_id
   ON hashes (hash, mime_type, last_modified, id);
+CREATE INDEX idx_hashes_covering_window
+ON hashes (hash, mime_type, last_modified, id, file_size, full_path);

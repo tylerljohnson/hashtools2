@@ -1,5 +1,6 @@
 package hashtools;
 
+import hashtools.commands.db.DbCommand;
 import hashtools.commands.generate.*;
 import hashtools.commands.meta.*;
 import hashtools.utils.*;
@@ -17,6 +18,7 @@ import java.util.concurrent.*;
     subcommands = {
         GenerateCommand.class,
         MetaCommand.class,
+            DbCommand.class,
     }
 )
 public class MainCli implements Callable<Integer> {
