@@ -5,6 +5,7 @@ target/
 !**/src/main/**/target/
 !**/src/test/**/target/
 /dependency-reduced-pom.xml
+/pom.xml.versionsBackup
 
 ### IntelliJ IDEA ###
 .idea

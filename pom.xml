@@ -5,7 +5,7 @@
 
     <groupId>net.netgizmo</groupId>
     <artifactId>hashtools2</artifactId>
-    <version>1.14.1</version>
+    <version>1.14.2</version>
     <name>Hash tools</name>
     <description>Recursively computes SHA-1 hashes and other meta for files in a directory tree.</description>
     <url>https://github.com/netgizmo/hashtools2</url>
@@ -16,8 +16,10 @@
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <maven.build.timestamp.format>yyyy-MM-dd'T'HH:mm:ss</maven.build.timestamp.format>
         <picocli.version>4.7.7</picocli.version>
-        <tika.version>3.0.0</tika.version>
-        <slf4j.version>2.0.7</slf4j.version>
+        <tika.version>3.2.3</tika.version>
+        <slf4j.version>2.0.17</slf4j.version>
+        <!-- Ignore pre-release versions when running versions:* goals -->
+        <maven.version.ignore>.+-SNAPSHOT,(?i).*[.-](alpha|beta|rc|cr|m|milestone)([.-]?\d+)?</maven.version.ignore>
     </properties>
 
     <dependencies>
