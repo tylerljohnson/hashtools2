@@ -63,5 +63,5 @@ EOF
       --username="$DB_USER" \
       --no-align \
       --field-separator=$'\t' \
-      --tuples-only \
+      --pset="pager=off" \
       --command="$SQL_QUERY"
