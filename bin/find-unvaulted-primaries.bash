@@ -15,10 +15,10 @@ VAULT_BASE="${1:-/home/tyler/packrat/vault/secret}"
 
 # Database defaults (mirroring your README)
 DB_HOST=${PGHOST:-cooper}
+DB_PORT=${PGPORT:-5432}
 DB_NAME=${PGDATABASE:-tyler}
 DB_USER=${PGUSER:-tyler}
-DB_PWD=${PGPASSWPRD:-cometdog}
-
+s
 # SQL Logic:
 # 1. Get all hashes that have at least one copy in the vault.
 # 2. Filter the 'images_primary' view for rows NOT in that vault path.
@@ -59,4 +59,4 @@ EOF
 echo "Searching for primary images not in vault: $VAULT_BASE"
 echo "----------------------------------------------------------------"
 
-psql -h "$DB_HOST" -d "$DB_NAME" -U "$DB_USER" -c "$SQL_QUERY"s
+psql -h "$DB_HOST" -p "$DB_PORT" -d "$DB_NAME" -U "$DB_USER" -c "$SQL_QUERY"
