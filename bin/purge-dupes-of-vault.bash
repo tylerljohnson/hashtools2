@@ -25,8 +25,9 @@
 #     rm-failed        - rm attempted but failed
 #     skipped-in-vault - safety guard: resolved under vault base path, not touched
 #
-# Env:
+# Env: use ~/.pgpass or
 #   PGHOST (default: cooper)
+#   PGPORT (default: 5432)
 #   PGUSER (default: tyler)
 #   PGDATABASE (default: tyler)
 #
@@ -39,9 +40,10 @@
 
 set -euo pipefail
 
-PGHOST="${PGHOST:-cooper}"
-PGUSER="${PGUSER:-tyler}"
-PGDATABASE="${PGDATABASE:-tyler}"
+DB_HOST="${PGHOST:-cooper}"
+DB_PORT="${PGPORT:-5432}"
+DB_USER="${PGUSER:-tyler}"
+DB_DATABASE="${PGDATABASE:-tyler}"
 
 VAULT_BASE="/Volumes/vault/secret"
 SHOW_ALL=0
@@ -204,9 +206,10 @@ fi
 if [[ "$PURGE" -eq 0 ]]; then
   # Normal listing mode
   psql \
-    -h "$PGHOST" \
-    -U "$PGUSER" \
-    -d "$PGDATABASE" \
+    -h "$DB_HOST" \
+    -p "$DB_PORT" \
+    -U "$DB_USER" \
+    -d "$DB_DATABASE" \
     -X \
     --tuples-only \
     --no-align \
@@ -217,9 +220,10 @@ if [[ "$PURGE" -eq 0 ]]; then
 else
   # Purge mode: stream psql output into while loop via a pipe
   psql \
-    -h "$PGHOST" \
-    -U "$PGUSER" \
-    -d "$PGDATABASE" \
+    -h "$DB_HOST" \
+    -p "$DB_PORT" \
+    -U "$DB_USER" \
+    -d "$DB_DATABASE" \
     -X \
     --tuples-only \
     --no-align \

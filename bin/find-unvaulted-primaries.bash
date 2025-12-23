@@ -9,6 +9,9 @@
 #
 # Usage:
 #   ./bin/find-unvaulted-primaries.bash [/path/to/vault/base]
+#
+# Env:
+#   - PGHOST, PGPORT, PGUSER, PGDATABASE env var or ~/.pgpass  (defaults: cooper, 5432, tyler, tyler)
 # ==============================================================================
 
 VAULT_BASE="${1:-/home/tyler/packrat/vault/secret}"
@@ -16,8 +19,8 @@ VAULT_BASE="${1:-/home/tyler/packrat/vault/secret}"
 # Database defaults (mirroring your README)
 DB_HOST=${PGHOST:-cooper}
 DB_PORT=${PGPORT:-5432}
-DB_NAME=${PGDATABASE:-tyler}
 DB_USER=${PGUSER:-tyler}
+DB_NAME=${PGDATABASE:-tyler}
 
 # SQL Logic:
 # 1. Get all hashes that have at least one copy in the vault.

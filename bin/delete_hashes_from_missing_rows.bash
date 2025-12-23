@@ -10,16 +10,16 @@
 #
 # REQUIREMENTS:
 #   - psql in PATH
-#   - Auth via PGPASSWORD env var or ~/.pgpass
+#   - PGHOST, PGPORT, PGUSER, PGDATABASE (defaults: cooper, 5432, tyler, tyler) or use ~/.pgpass
 #
 
 set -euo pipefail
 
 # -----[ Credentials / Connection ]-----
-PGHOST="${PGHOST:-cooper}"
-PGUSER="${PGUSER:-tyler}"
-PGDATABASE="${PGDATABASE:-tyler}"
-PGPORT="${PGPORT:-5432}"
+DB_HOST="${PGHOST:-cooper}"
+DB_PORT="${PGPORT:-5432}"
+DB_USER="${PGUSER:-tyler}"
+DB_DATABASE="${PGDATABASE:-tyler}"
 
 # -----[ Options ]-----
 DIR="."
@@ -62,7 +62,7 @@ if [[ ${#files[@]} -eq 0 ]]; then
   exit 0
 fi
 
-psql_base=( psql -X -v ON_ERROR_STOP=1 -h "$PGHOST" -p "$PGPORT" -U "$PGUSER" -d "$PGDATABASE" )
+psql_base=( psql -X -v ON_ERROR_STOP=1 -h "$DB_HOST" -p "$DB_PORT" -U "$DB_USER" -d "$DB_DATABASE" )
 
 detect_header() {
   local f="$1"
@@ -109,7 +109,7 @@ stream_good_ids() {
   '
 }
 
-echo "# host=$PGHOST port=$PGPORT user=$PGUSER db=$PGDATABASE"
+echo "# host=$DB_HOST port=$DB_PORT user=$DB_USER db=$DB_DATABASE"
 echo "# dir=$DIR dry_run=$DRY_RUN vacuum_after=$VACUUM_AFTER"
 echo
 

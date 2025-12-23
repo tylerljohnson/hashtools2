@@ -8,18 +8,19 @@
 #
 # Symbols per row:
 #   🔎 <hash> <mime>                 (would remove; dry-run, file exists)
-#   ⚠️  <hash> <mime> (missing file)  (dry-run: DB row stale; no changes)
+#   ⚠️ <hash> <mime> (missing file)  (dry-run: DB row stale; no changes)
 #   ✅ <hash> <mime>                 (removed file; DB row removed if --sync-db)
-#   ⚠️  <hash> <mime> (missing file)  (force: DB row removed if --sync-db)
-#   ❌ <hash> <mime> (reason)         (failed remove; DB row kept)
+#   ⚠️ <hash> <mime> (missing file)  (force: DB row removed if --sync-db)
+#   ❌ <hash> <mime> (reason)        (failed remove; DB row kept)
 #
-# Env: PGHOST, PGUSER, PGDATABASE
+# Env: PGHOST, PGPORT, PGUSER, PGDATABASE (defaults: cooper, 5432, tyler, tyler) or use ~/.pgpass
 set -euo pipefail
 
 # --- Config (env-overridable) ---
-PGHOST="${PGHOST:-cooper}"
-PGUSER="${PGUSER:-tyler}"
-PGDATABASE="${PGDATABASE:-tyler}"
+DB_HOST="${PGHOST:-cooper}"
+DB_PORT="${PGPORT:-5432}"
+DB_USER="${PGUSER:-tyler}"
+DB_DATABASE="${PGDATABASE:-tyler}"
 
 GREEN='\033[0;32m'; RED='\033[0;31m'; RESET='\033[0m'
 
@@ -83,7 +84,7 @@ fi
 $FORCE && : > "$OK_PATHS" || true
 
 # --- Execute query and process results ---
-psql -h "$PGHOST" -U "$PGUSER" -d "$PGDATABASE" -At -F $'\t' -c "$SQL" |
+psql -h "$DB_HOST" -p "$DB_PORT" -U "$DB_USER" -d "$DB_DATABASE" -At -F $'\t' -c "$SQL" |
 while IFS=$'\t' read -r mime hash path; do
   [[ -z "${hash:-}" && -z "${mime:-}" && -z "${path:-}" ]] && continue
 
@@ -120,8 +121,8 @@ done
 # --- Optional DB sync ---
 if [[ "$FORCE" == true && "$SYNC_DB" == true ]]; then
   if [[ -s "$OK_PATHS" ]]; then
-    echo "[*] Syncing DB rows for ${PGDATABASE} using $OK_PATHS ..."
-    psql -h "$PGHOST" -U "$PGUSER" -d "$PGDATABASE" <<SQL
+    echo "[*] Syncing DB rows for ${DB_DATABASE} using $OK_PATHS ..."
+    psql -h "$DB_HOST" -p "$DB_PORT" -U "$DB_USER" -d "$DB_DATABASE" <<SQL
 BEGIN;
 CREATE TEMP TABLE to_delete(full_path text);
 \copy to_delete FROM '$OK_PATHS' WITH (FORMAT text)

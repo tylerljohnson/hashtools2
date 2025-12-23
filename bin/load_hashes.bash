@@ -3,17 +3,19 @@
 # load_hashes.bash
 # Loads one or more .hashes (TSV) files into the 'hashes' table in PostgreSQL.
 #
-# Env: PGHOST, PGUSER, PGDATABASE (defaults: cooper, tyler, tyler)
 # Usage:
 #   ./load_hashes.bash <path-to-file> [<path-to-file> ...]
 #   ./load_hashes.bash all.hashes other.hashes
 #
+# Env: PGHOST, PGPORT, PGUSER, PGDATABASE (defaults: cooper, 5432, tyler, tyler) or use ~/.pgpass
+#
 
 set -euo pipefail
 
-PGHOST="${PGHOST:-cooper}"
-PGUSER="${PGUSER:-tyler}"
-PGDATABASE="${PGDATABASE:-tyler}"
+DB_HOST="${PGHOST:-cooper}"
+DB_PORT="${PGPORT:-5432}"
+DB_USER="${PGUSER:-tyler}"
+DB_DATABASE="${PGDATABASE:-tyler}"
 
 # --- Parse args ---
 if [[ $# -lt 1 ]]; then
@@ -21,7 +23,7 @@ if [[ $# -lt 1 ]]; then
   exit 1
 fi
 
-echo "[*] Target database: $PGDATABASE@$PGHOST"
+echo "[*] Target database: $DB_DATABASE@$DB_HOST"
 
 for HASHFILE in "$@"; do
   if [[ ! -f "$HASHFILE" ]]; then
@@ -30,7 +32,7 @@ for HASHFILE in "$@"; do
   fi
 
   echo "[*] Importing data from '$HASHFILE'..."
-  if ! psql -h "$PGHOST" -U "$PGUSER" -d "$PGDATABASE" \
+  if ! psql -h "$DB_HOST" -p "$DB_PORT" -U "$DB_USER" -d "$DB_DATABASE" \
     -c "\copy hashes(hash,last_modified,file_size,mime_type,base_path,file_path) FROM '${HASHFILE}' WITH (FORMAT CSV, DELIMITER E'\t', HEADER FALSE, ENCODING 'UTF8');"
   then
     echo "ERROR: psql failed while importing '$HASHFILE'." >&2

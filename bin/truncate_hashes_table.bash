@@ -2,6 +2,9 @@
 #
 # truncate_hashes_table.bash
 # Safely truncates the 'hashes' table in the configured PostgreSQL database.
+#
+# Environment:
+#   PGHOST, PGPORT, PGUSER, PGDATABASE, PGPASSWORD (or ~/.pgpass)
 
 set -euo pipefail
 
