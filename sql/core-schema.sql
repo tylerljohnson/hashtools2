@@ -1,3 +1,24 @@
+-- ==============================================================================
+-- CORE SCHEMA OVERVIEW
+-- ==============================================================================
+-- This script initializes the central 'hashes' table and its supporting views.
+--
+-- 1. TABLE: hashes
+--    - Stores SHA-1 digests, file metadata (size, mime, timestamps), and paths.
+--    - Uses a BIGSERIAL id starting at 1,000,001.
+--    - Includes a generated 'full_path' for easy querying and path validation.
+--
+-- 2. INDEXES:
+--    - Optimized for hash lookups, MIME-type filtering, and date sorting.
+--    - Includes covering indexes to support high-performance window functions.
+--
+-- 3. VIEWS:
+--    - Organized by file category (files, media, images, videos, audio).
+--    - Each category provides three views:
+--        * <base>: All records with an 'id' and 'disposition' (primary vs redundant).
+--        * <base>_primary: The oldest unique instance of a file (by hash/mime).
+--        * <base>_redundant: Duplicate copies that can be safely archived or deleted.
+-- ==============================================================================
 
 
 -- ==================================================
@@ -69,7 +90,8 @@ DROP VIEW IF EXISTS
 
 -- Base: files (all MIME types)
 CREATE OR REPLACE VIEW files AS
-WITH ranked AS (SELECT hash,
+WITH ranked AS (SELECT id,
+                       hash,
                        mime_type,
                        last_modified,
                        file_size                                    AS length,
@@ -79,11 +101,12 @@ WITH ranked AS (SELECT hash,
                        DENSE_RANK() OVER (ORDER BY hash, mime_type) AS group_num,
                        ROW_NUMBER() OVER (
                            PARTITION BY hash, mime_type
-                           ORDER BY last_modified, id
+                           ORDER BY last_modified ASC, id ASC
                            )                                        AS rn,
                        COUNT(*) OVER (PARTITION BY hash, mime_type) AS grp_size
                 FROM hashes)
-SELECT group_num,
+SELECT id,
+       group_num,
        hash,
        last_modified,
        mime_type,
@@ -106,7 +129,8 @@ WHERE disposition = 'redundant';
 
 -- Base: media (image/% OR video/% OR audio/%)
 CREATE OR REPLACE VIEW media AS
-WITH ranked AS (SELECT hash,
+WITH ranked AS (SELECT id,
+                       hash,
                        mime_type,
                        last_modified,
                        file_size                                    AS length,
@@ -116,12 +140,13 @@ WITH ranked AS (SELECT hash,
                        DENSE_RANK() OVER (ORDER BY hash, mime_type) AS group_num,
                        ROW_NUMBER() OVER (
                            PARTITION BY hash, mime_type
-                           ORDER BY last_modified, id
+                           ORDER BY last_modified ASC, id ASC
                            )                                        AS rn,
                        COUNT(*) OVER (PARTITION BY hash, mime_type) AS grp_size
                 FROM hashes
                 WHERE mime_type LIKE ANY (ARRAY ['image/%','video/%','audio/%']))
-SELECT group_num,
+SELECT id,
+       group_num,
        hash,
        last_modified,
        mime_type,
@@ -144,7 +169,8 @@ WHERE disposition = 'redundant';
 
 -- Base: images (image/%)
 CREATE OR REPLACE VIEW images AS
-WITH ranked AS (SELECT hash,
+WITH ranked AS (SELECT id,
+                       hash,
                        mime_type,
                        last_modified,
                        file_size                                    AS length,
@@ -154,12 +180,13 @@ WITH ranked AS (SELECT hash,
                        DENSE_RANK() OVER (ORDER BY hash, mime_type) AS group_num,
                        ROW_NUMBER() OVER (
                            PARTITION BY hash, mime_type
-                           ORDER BY last_modified, id
+                           ORDER BY last_modified ASC, id ASC
                            )                                        AS rn,
                        COUNT(*) OVER (PARTITION BY hash, mime_type) AS grp_size
                 FROM hashes
                 WHERE mime_type LIKE 'image/%')
-SELECT group_num,
+SELECT id,
+       group_num,
        hash,
        last_modified,
        mime_type,
@@ -182,7 +209,8 @@ WHERE disposition = 'redundant';
 
 -- Base: videos (video/%)
 CREATE OR REPLACE VIEW videos AS
-WITH ranked AS (SELECT hash,
+WITH ranked AS (SELECT id,
+                       hash,
                        mime_type,
                        last_modified,
                        file_size                                    AS length,
@@ -192,12 +220,13 @@ WITH ranked AS (SELECT hash,
                        DENSE_RANK() OVER (ORDER BY hash, mime_type) AS group_num,
                        ROW_NUMBER() OVER (
                            PARTITION BY hash, mime_type
-                           ORDER BY last_modified, id
+                           ORDER BY last_modified ASC, id ASC
                            )                                        AS rn,
                        COUNT(*) OVER (PARTITION BY hash, mime_type) AS grp_size
                 FROM hashes
                 WHERE mime_type LIKE 'video/%')
-SELECT group_num,
+SELECT id,
+       group_num,
        hash,
        last_modified,
        mime_type,
@@ -220,7 +249,8 @@ WHERE disposition = 'redundant';
 
 -- Base: audio (audio/%)
 CREATE OR REPLACE VIEW audio AS
-WITH ranked AS (SELECT hash,
+WITH ranked AS (SELECT id,
+                       hash,
                        mime_type,
                        last_modified,
                        file_size                                    AS length,
@@ -230,12 +260,13 @@ WITH ranked AS (SELECT hash,
                        DENSE_RANK() OVER (ORDER BY hash, mime_type) AS group_num,
                        ROW_NUMBER() OVER (
                            PARTITION BY hash, mime_type
-                           ORDER BY last_modified, id
+                           ORDER BY last_modified ASC, id ASC
                            )                                        AS rn,
                        COUNT(*) OVER (PARTITION BY hash, mime_type) AS grp_size
                 FROM hashes
                 WHERE mime_type LIKE 'audio/%')
-SELECT group_num,
+SELECT id,
+       group_num,
        hash,
        last_modified,
        mime_type,
