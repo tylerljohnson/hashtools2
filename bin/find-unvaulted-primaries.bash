@@ -64,4 +64,5 @@ EOF
       --no-align \
       --field-separator=$'\t' \
       --pset="pager=off" \
+      --pset="footer=off" \
       --command="$SQL_QUERY"
