@@ -18,7 +18,7 @@ DB_HOST=${PGHOST:-cooper}
 DB_PORT=${PGPORT:-5432}
 DB_NAME=${PGDATABASE:-tyler}
 DB_USER=${PGUSER:-tyler}
-s
+
 # SQL Logic:
 # 1. Get all hashes that have at least one copy in the vault.
 # 2. Filter the 'images_primary' view for rows NOT in that vault path.
