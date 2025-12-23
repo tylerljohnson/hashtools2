@@ -56,7 +56,12 @@ ORDER BY
 EOF
 )
 
-echo "Searching for primary images not in vault: $VAULT_BASE"
-echo "----------------------------------------------------------------"
-
-psql -h "$DB_HOST" -p "$DB_PORT" -d "$DB_NAME" -U "$DB_USER" -c "$SQL_QUERY"
+ psql \
+      --host="$DB_HOST" \
+      --port="$DB_PORT" \
+      --dbname="$DB_NAME" \
+      --username="$DB_USER" \
+      --no-align \
+      --field-separator=$'\t' \
+      --tuples-only \
+      --command="$SQL_QUERY"
