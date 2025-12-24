@@ -81,24 +81,31 @@ if [ "$DEBUG" = true ]; then
     echo "[DEBUG] Starting processing of: $INPUT_FILE"
 fi
 
-# Read lines. IFS=$'\t' combined with read handles the TSV columns.
-# || [ -n "$vault_id" ] handles files without a trailing newline.
-while IFS=$'\t' read -r vault_id primary_last_modified vault_full_path || [ -n "${vault_id:-}" ]; do
+# Use a generic read and split via awk for maximum compatibility
+while read -r line || [[ -n "$line" ]]; do
     ((line_num++))
 
     if [ "$DEBUG" = true ]; then
-        echo "[DEBUG Line $line_num] Raw vault_id: [${vault_id:-}]"
+        echo "[DEBUG Line $line_num] Processing line..."
     fi
 
-    # Clean inputs (handle CRLF and extra whitespace)
-    # Use || true to prevent xargs/printf from failing on empty strings
-    vault_id=$(printf '%s' "${vault_id:-}" | tr -d '\r' | xargs 2>/dev/null || echo "${vault_id:-}")
-    primary_last_modified=$(printf '%s' "${primary_last_modified:-}" | tr -d '\r' | xargs 2>/dev/null || echo "${primary_last_modified:-}")
-    vault_full_path=$(printf '%s' "${vault_full_path:-}" | tr -d '\r' | xargs 2>/dev/null || echo "${vault_full_path:-}")
+    # Split using awk (TSV)
+    vault_id=$(echo "$line" | awk -F'\t' '{print $1}')
+    primary_last_modified=$(echo "$line" | awk -F'\t' '{print $2}')
+    vault_full_path=$(echo "$line" | awk -F'\t' '{print $3}')
 
-    # Skip empty lines or standard header
+    # Clean inputs
+    vault_id=$(printf '%s' "$vault_id" | tr -d '\r' | xargs 2>/dev/null || echo "$vault_id")
+    primary_last_modified=$(printf '%s' "$primary_last_modified" | tr -d '\r' | xargs 2>/dev/null || echo "$primary_last_modified")
+    vault_full_path=$(printf '%s' "$vault_full_path" | tr -d '\r' | xargs 2>/dev/null || echo "$vault_full_path")
+
+    if [ "$DEBUG" = true ]; then
+        echo "[DEBUG Line $line_num] Fields: ID=[$vault_id] TS=[$primary_last_modified] Path=[$vault_full_path]"
+    fi
+
+    # Skip empty lines or header row
     if [[ -z "$vault_id" || "$vault_id" == "vault_id" ]]; then
-        [ "$DEBUG" = true ] && echo "[DEBUG Line $line_num] Skipping empty or header row."
+        [ "$DEBUG" = true ] && echo "[DEBUG Line $line_num] Skipping empty/header."
         continue
     fi
 
@@ -111,30 +118,22 @@ while IFS=$'\t' read -r vault_id primary_last_modified vault_full_path || [ -n "
     FILE_EXISTS=false
     if [ -e "$vault_full_path" ]; then FILE_EXISTS=true; fi
 
-    if [ "$DEBUG" = true ]; then
-        echo "[DEBUG Line $line_num] File exists: $FILE_EXISTS, Force: $FORCE"
-        echo "[DEBUG Line $line_num] Path: [$vault_full_path]"
-    fi
-
     if [ "$FORCE" = true ] || [ "$FILE_EXISTS" = true ]; then
         TOUCH_SUCCESS=false
 
         if [ "$FILE_EXISTS" = true ]; then
             if [ "$IS_MAC" = true ]; then
-                # macOS (BSD) touch requires [[CC]YY]MMDDhhmm[.ss]
                 MAC_DATE=$(echo "$primary_last_modified" | sed 's/[- : ]//g' | sed 's/\(..\)$/.\1/')
                 if touch -mt "$MAC_DATE" "$vault_full_path" 2>/dev/null; then
                     TOUCH_SUCCESS=true
                 fi
             else
-                # Linux (GNU) touch handles "YYYY-MM-DD HH:MM:SS" directly
                 if touch -c -d "$primary_last_modified" "$vault_full_path" 2>/dev/null; then
                     TOUCH_SUCCESS=true
                 fi
             fi
         fi
 
-        # If touch worked, OR if we are forcing and the file doesn't exist, queue the DB update
         if [ "$TOUCH_SUCCESS" = true ] || { [ "$FORCE" = true ] && [ "$FILE_EXISTS" = false ]; }; then
             echo "UPDATE hashes SET last_modified = '$primary_last_modified'::TIMESTAMP WHERE id = $vault_id;" >> "$SQL_FILE"
             ((count_ok++))
@@ -160,20 +159,11 @@ if [ "$count_ok" -gt 0 ]; then
     echo "--- SQL Script Contents ---"
     cat "$SQL_FILE"
     echo "---------------------------"
-
     echo "Executing database transaction for $count_ok updates..."
-    if psql \
-        --host="$DB_HOST" \
-        --port="$DB_PORT" \
-        --username="$DB_USER" \
-        --dbname="$DB_NAME" \
-        --file="$SQL_FILE" \
-        --set ON_ERROR_STOP=1 \
-        --quiet \
-        --no-psqlrc; then
+    if psql --host="$DB_HOST" --port="$DB_PORT" --username="$DB_USER" --dbname="$DB_NAME" --file="$SQL_FILE" --set ON_ERROR_STOP=1 --quiet --no-psqlrc; then
         echo "Database transaction successful."
     else
-        echo "Error: Database transaction failed and was rolled back."
+        echo "Error: Database transaction failed."
         exit 1
     fi
 else
