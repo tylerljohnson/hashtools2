@@ -36,9 +36,9 @@ for ID in "$@"; do
 
     if [ -n "$FULL_PATH" ]; then
         if [ -f "$FULL_PATH" ]; then
-            echo "Displaying ID $ID: $FULL_PATH"
+            echo "ID $ID : $FULL_PATH"
             # 2. Execute imgcat
-            imgcat -r -W 30% -p "$FULL_PATH"
+            imgcat --preserve-aspect-ratio --width 30% "$FULL_PATH"
             echo "" # Output a blank line
         else
             echo "Error: File for ID $ID not found on filesystem: $FULL_PATH"
