@@ -84,6 +84,8 @@ echo "Reading from: $INPUT_FILE"
 while IFS=$'\t' read -r vault_id primary_last_modified vault_full_path || [ -n "$vault_id" ]; do
     ((line_num++))
 
+echo "$line_num"
+
     if [ "$DEBUG" = true ]; then
         echo "[DEBUG Line $line_num] Raw input: vault_id='$vault_id', ts='$primary_last_modified', path='$vault_full_path'"
     fi
