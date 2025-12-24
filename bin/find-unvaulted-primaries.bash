@@ -10,8 +10,13 @@
 # Usage:
 #   ./bin/find-unvaulted-primaries.bash [/path/to/vault/base]
 #
+# Example:
+#   Show vault_id, primary_last_modified & vault_full_path so we can fix the vault file last update timestamp:
+#     ./bin/find-unvaulted-primaries.bash | cut -f 5,8,9
+#
 # Env:
 #   - PGHOST, PGPORT, PGUSER, PGDATABASE env var or ~/.pgpass  (defaults: cooper, 5432, tyler, tyler)
+#
 # ==============================================================================
 
 VAULT_BASE="${1:-/home/tyler/packrat/vault/secret}"

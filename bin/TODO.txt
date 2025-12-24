@@ -1,0 +1,7 @@
+
+Tasks that need to be done when listing outdated vault files:
+  run ./bin/find-unvaulted-primaries.bash | cut -f 5,8,9
+This returns a list of :vault_id, primary_last_modified & vault_full_path
+For each result
+  1. in fs: set last modified timestamp of {vault_full_path} to the value {primary_last_modified}
+  2. in db: run sql update hashes set last_modified = {primary_last_modified} where id = {vault_id}
