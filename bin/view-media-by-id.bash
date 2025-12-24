@@ -27,7 +27,8 @@ for ID in "$@"; do
         # 1. Fetch the full_path and mime_type from the database
         # Validate ID is a number to prevent SQL injection or psql errors
         if [[ ! "$ID" =~ ^[0-9]+$ ]]; then
-            echo "ID: $ID : ERROR : id does not exist"
+            echo "ID: $ID"
+            echo "ERROR : id does not exist"
             echo ""
             continue
         fi
@@ -62,16 +63,19 @@ for ID in "$@"; do
                 echo "MIME-TYPE: $MIME_TYPE"
                 echo "     SIZE: $SIZE_STR"
                 echo "     DATE: $DATE_STR"
-                echo "$FULL_PATH"
+                echo "     PATH: $FULL_PATH"
                 # 2. Execute imgcat
                 imgcat --preserve-aspect-ratio --width 30% "$FULL_PATH"
                 echo "" # Output a blank line
             else
-                echo "ID: $ID : ERROR : file does not exist on disk: $FULL_PATH"
+                echo "ID: $ID"
+                echo "ERROR : file does not exist on disk"
+                echo "PATH: $FULL_PATH"
                 echo ""
             fi
         else
-            echo "ID: $ID : ERROR : id does not exist"
+            echo "ID: $ID"
+            echo "ERROR : id does not exist"
             echo ""
         fi
     done
