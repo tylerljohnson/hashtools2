@@ -58,7 +58,10 @@ for ID in "$@"; do
             DATE_STR=$(echo "$RESULT" | cut -d'|' -f4)
 
             if [ -f "$FULL_PATH" ]; then
-                echo "ID : $ID MIME-TYPE: $MIME_TYPE SIZE: $SIZE_STR DATE: $DATE_STR"
+                echo "       ID: $ID"
+                echo "MIME-TYPE: $MIME_TYPE"
+                echo "     SIZE: $SIZE_STR"
+                echo "     DATE: $DATE_STR"
                 echo "$FULL_PATH"
                 # 2. Execute imgcat
                 imgcat --preserve-aspect-ratio --width 30% "$FULL_PATH"
