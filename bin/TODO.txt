@@ -1,7 +1,9 @@
+I have a file, which is tab separated, with columns: vault_id, primary_last_modified & vault_full_path
 
-Tasks that need to be done when listing outdated vault files:
-  run ./bin/find-unvaulted-primaries.bash | cut -f 5,8,9
-This returns a list of :vault_id, primary_last_modified & vault_full_path
-For each result
-  1. in fs: set last modified timestamp of {vault_full_path} to the value {primary_last_modified}
-  2. in db: run sql update hashes set last_modified = {primary_last_modified} where id = {vault_id}
+For every line in the file, I must achieve the following two tasks:
+  1. Update the last modified timestamp on the filesystem for {vault_full_path} to {primary_last_modified}.
+  2. Execute an SQL update statement in the database: `hashes` table, setting `last_modified` to {primary_last_modified} for the record where `id` equals {vault_id}.
+ Keep in mind:
+  - The {vault_full_path} may contain whitespace characters.
+  - Ensure {vault_full_path} exists on the filesystem before proceeding.
+  - It would be preferable to execute these operations within a transaction.
