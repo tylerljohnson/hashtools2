@@ -1,9 +1,23 @@
-I have a file, which is tab separated, with columns: vault_id, primary_last_modified & vault_full_path
 
-For every line in the file, I must achieve the following two tasks:
-  1. Update the last modified timestamp on the filesystem for {vault_full_path} to {primary_last_modified}.
-  2. Execute an SQL update statement in the database: `hashes` table, setting `last_modified` to {primary_last_modified} for the record where `id` equals {vault_id}.
- Keep in mind:
-  - The {vault_full_path} may contain whitespace characters.
-  - Ensure {vault_full_path} exists on the filesystem before proceeding.
-  - It would be preferable to execute these operations within a transaction.
+### Find (and update) oudated vault files
+
+This is how to find (and update) vault files that are out of date as compared to the duplicate which is older.
+
+1. List the vault and older duplicate files:
+    ```bash
+    $ ./bin/find-unvaulted-primaries.bash | cut -f 5,8,9 > all.tsv
+    ```
+2. Create a file of data to fix them:
+    ```bash
+    $ ./bin/find-unvaulted-primaries.bash | cut -f 5,8,9 > data-to-fix.tsv
+    ```
+3. Now run those fixes against the filesystem AND databsae:
+    ```bash
+    $ ./bin/fix-unvaulted-primaries.bash data-to-fix.tsv
+    ```
+
+### View a file(s) via its id in the terminal
+    this will use `imgcat` to view the image with the given id in the terminal.
+    ```bash
+    $ ./bin/viewById.bash 123 [more-ids]
+    ```
