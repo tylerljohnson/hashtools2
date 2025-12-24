@@ -23,12 +23,33 @@ DB_PORT=${PGPORT:-5432}
 DB_USER=${PGUSER:-tyler}
 DB_NAME=${PGDATABASE:-tyler}
 
-if [ "$#" -ne 1 ]; then
-    echo "Usage: $0 <tsv_file>"
+FORCE=false
+INPUT_FILE=""
+
+# Parse arguments
+while [[ $# -gt 0 ]]; do
+    case $1 in
+        --force)
+            FORCE=true
+            shift
+            ;;
+        -*)
+            echo "Unknown option: $1"
+            echo "Usage: $0 [--force] <tsv_file>"
+            exit 1
+            ;;
+        *)
+            INPUT_FILE="$1"
+            shift
+            ;;
+    esac
+done
+
+if [ -z "$INPUT_FILE" ]; then
+    echo "Usage: $0 [--force] <tsv_file>"
     exit 1
 fi
 
-INPUT_FILE="$1"
 if [ ! -f "$INPUT_FILE" ]; then
     echo "Error: File $INPUT_FILE not found."
     exit 1
@@ -67,7 +88,7 @@ while IFS=$'\t' read -r vault_id primary_last_modified vault_full_path || [ -n "
     # If vault_id is not a number, skip it (it's the header)
     [[ ! "$vault_id" =~ ^[0-9]+$ ]] && continue
 
-    if [ -e "$vault_full_path" ]; then
+    if [ "$FORCE" = true ] || [ -e "$vault_full_path" ]; then
         TOUCH_SUCCESS=false
 
         if [ "$IS_MAC" = true ]; then
@@ -83,10 +104,14 @@ while IFS=$'\t' read -r vault_id primary_last_modified vault_full_path || [ -n "
             fi
         fi
 
-        if [ "$TOUCH_SUCCESS" = true ]; then
+        if [ "$TOUCH_SUCCESS" = true ] || { [ "$FORCE" = true ] && [ ! -e "$vault_full_path" ]; }; then
             echo "UPDATE hashes SET last_modified = '$primary_last_modified'::TIMESTAMP WHERE id = $vault_id;" >> "$SQL_FILE"
             ((count_ok++))
-            echo "[Line $line_num] Updated FS: $vault_full_path"
+            if [ -e "$vault_full_path" ]; then
+                echo "[Line $line_num] Updated FS & DB: $vault_full_path"
+            else
+                echo "[Line $line_num] Updated DB (FS missing, --force): $vault_full_path"
+            fi
         else
             echo "[Line $line_num] FATAL ERROR: touch failed for: $vault_full_path"
             exit 1
