@@ -22,7 +22,7 @@ DB_HOST=${PGHOST:-cooper}
 DB_PORT=${PGPORT:-5432}
 DB_USER=${PGUSER:-tyler}
 DB_NAME=${PGDATABASE:-tyler}
-
+asdfasdf
 FORCE=false
 DEBUG=false
 INPUT_FILE=""
