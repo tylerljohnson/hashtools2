@@ -83,7 +83,7 @@ fi
 
 # Use a generic read and split via awk for maximum compatibility
 while read -r line || [[ -n "$line" ]]; do
-    ((line_num++))
+    ((++line_num))
 
     if [ "$DEBUG" = true ]; then
         echo "[DEBUG Line $line_num] Processing line..."
@@ -136,7 +136,7 @@ while read -r line || [[ -n "$line" ]]; do
 
         if [ "$TOUCH_SUCCESS" = true ] || { [ "$FORCE" = true ] && [ "$FILE_EXISTS" = false ]; }; then
             echo "UPDATE hashes SET last_modified = '$primary_last_modified'::TIMESTAMP WHERE id = $vault_id;" >> "$SQL_FILE"
-            ((count_ok++))
+            ((++count_ok))
             if [ "$FILE_EXISTS" = true ]; then
                 echo "[Line $line_num] Updated FS & DB: $vault_full_path"
             else
@@ -148,7 +148,7 @@ while read -r line || [[ -n "$line" ]]; do
         fi
     else
         echo "[Line $line_num] SKIP: File not found: $vault_full_path"
-        ((count_skip++))
+        ((++count_skip))
     fi
 done < "$INPUT_FILE"
 
