@@ -24,7 +24,7 @@ if [ "$#" -lt 1 ]; then
 fi
 
 for ID in "$@"; do
-        # 1. Fetch the full_path from the database
+        # 1. Fetch the full_path and mime_type from the database
         # Validate ID is a number to prevent SQL injection or psql errors
         if [[ ! "$ID" =~ ^[0-9]+$ ]]; then
             echo "ID: $ID : ERROR : id does not exist"
@@ -32,18 +32,22 @@ for ID in "$@"; do
             continue
         fi
 
-        FULL_PATH=$(psql \
+        RESULT=$(psql \
             --host="$DB_HOST" \
             --port="$DB_PORT" \
             --username="$DB_USER" \
             --dbname="$DB_NAME" \
             --tuples-only \
             --no-align \
-            --command="SELECT full_path FROM hashes WHERE id = $ID;")
+            --field-separator='|' \
+            --command="SELECT full_path, mime_type FROM hashes WHERE id = $ID;")
 
-        if [ -n "$FULL_PATH" ]; then
+        if [ -n "$RESULT" ]; then
+            FULL_PATH=$(echo "$RESULT" | cut -d'|' -f1)
+            MIME_TYPE=$(echo "$RESULT" | cut -d'|' -f2)
+
             if [ -f "$FULL_PATH" ]; then
-                echo "ID $ID : $FULL_PATH"
+                echo "ID $ID : $MIME_TYPE : $FULL_PATH"
                 # 2. Execute imgcat
                 imgcat --preserve-aspect-ratio --width 30% "$FULL_PATH"
                 echo "" # Output a blank line
