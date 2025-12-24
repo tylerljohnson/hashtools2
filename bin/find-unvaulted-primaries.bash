@@ -40,10 +40,10 @@ SELECT
     ROUND(EXTRACT(EPOCH FROM (i_vault.last_modified - ip.last_modified)) / 86400.0, 6) AS delta_days,
     i_vault.id as vault_id,
     ip.id as primary_id,
-    ip.last_modified as primary_last_modified,
     i_vault.last_modified as vault_last_modified,
-    '"' || ip.full_path || '"' AS primary_full_path,
-    '"' || i_vault.full_path || '"' AS vault_full_path
+    ip.last_modified as primary_last_modified,
+    i_vault.full_path AS vault_full_path
+    ip.full_path AS primary_full_path,
 FROM
     images_primary ip
         JOIN vault_hashes vh ON ip.hash = vh.hash
