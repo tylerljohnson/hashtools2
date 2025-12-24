@@ -101,6 +101,10 @@ echo "COMMIT;" >> "$SQL_FILE"
 
 # 5. Database Execution
 if [ "$count_ok" -gt 0 ]; then
+    echo "--- SQL Script Contents ---"
+    cat "$SQL_FILE"
+    echo "---------------------------"
+
     echo "Executing database transaction for $count_ok updates..."
     if psql \
         --host="$DB_HOST" \
