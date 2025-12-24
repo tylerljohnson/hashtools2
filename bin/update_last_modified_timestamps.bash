@@ -81,27 +81,43 @@ if [ "$DEBUG" = true ]; then
     echo "[DEBUG] Starting processing of: $INPUT_FILE"
 fi
 
-# Use cat to feed the loop and a more robust read
-cat "$INPUT_FILE" | while read -r line || [[ -n "$line" ]]; do
+# Read lines. IFS=$'\t' combined with read handles the TSV columns.
+# || [ -n "$vault_id" ] handles files without a trailing newline.
+while IFS=$'\t' read -r vault_id primary_last_modified vault_full_path || [ -n "${vault_id:-}" ]; do
     ((line_num++))
 
     if [ "$DEBUG" = true ]; then
-        echo "[DEBUG Line $line_num] Raw line: >>$line<<"
+        echo "[DEBUG Line $line_num] Raw vault_id: [${vault_id:-}]"
     fi
 
-    # Split manually to be 100% sure about tabs
-    vault_id=$(echo "$line" | cut -d$'\t' -f1)
-    primary_last_modified=$(echo "$line" | cut -d$'\t' -f2)
-    vault_full_path=$(echo "$line" | cut -d$'\t' -f3)
+    # Clean inputs (handle CRLF and extra whitespace)
+    # Use || true to prevent xargs/printf from failing on empty strings
+    vault_id=$(printf '%s' "${vault_id:-}" | tr -d '\r' | xargs 2>/dev/null || echo "${vault_id:-}")
+    primary_last_modified=$(printf '%s' "${primary_last_modified:-}" | tr -d '\r' | xargs 2>/dev/null || echo "${primary_last_modified:-}")
+    vault_full_path=$(printf '%s' "${vault_full_path:-}" | tr -d '\r' | xargs 2>/dev/null || echo "${vault_full_path:-}")
 
-    # Clean inputs
-    vault_id=$(printf '%s' "$vault_id" | tr -d '\r' | xargs 2>/dev/null || echo "$vault_id")
-    primary_last_modified=$(printf '%s' "$primary_last_modified" | tr -d '\r' | xargs 2>/dev/null || echo "$primary_last_modified")
-    vault_full_path=$(printf '%s' "$vault_full_path" | tr -d '\r' | xargs 2>/dev/null || echo "$vault_full_path")
+    # Skip empty lines or standard header
+    if [[ -z "$vault_id" || "$vault_id" == "vault_id" ]]; then
+        [ "$DEBUG" = true ] && echo "[DEBUG Line $line_num] Skipping empty or header row."
+        continue
+    fi
+
+    # If vault_id is not a number, skip it
+    if [[ ! "$vault_id" =~ ^[0-9]+$ ]]; then
+        [ "$DEBUG" = true ] && echo "[DEBUG Line $line_num] Skipping non-numeric ID: $vault_id"
+        continue
+    fi
+
+    FILE_EXISTS=false
+    if [ -e "$vault_full_path" ]; then FILE_EXISTS=true; fi
 
     if [ "$DEBUG" = true ]; then
-        echo "[DEBUG Line $line_num] Split results: ID=[$vault_id] TS=[$primary_last_modified] PATH=[$vault_full_path]"
+        echo "[DEBUG Line $line_num] File exists: $FILE_EXISTS, Force: $FORCE"
+        echo "[DEBUG Line $line_num] Path: [$vault_full_path]"
     fi
+
+    if [ "$FORCE" = true ] || [ "$FILE_EXISTS" = true ]; then
+        TOUCH_SUCCESS=false
 
         if [ "$FILE_EXISTS" = true ]; then
             if [ "$IS_MAC" = true ]; then
