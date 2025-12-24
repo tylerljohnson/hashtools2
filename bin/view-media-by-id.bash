@@ -42,11 +42,11 @@ for ID in "$@"; do
             --field-separator='|' \
             --command="SELECT full_path, mime_type, 
                 CASE
-                    WHEN file_size < 1024 THEN file_size::text || ' B'
-                    WHEN file_size < 1024^2 THEN trunc(file_size::numeric / 1024, 1)::text || ' KB'
-                    WHEN file_size < 1024^3 THEN trunc(file_size::numeric / 1024^2, 1)::text || ' MB'
-                    WHEN file_size < 1024^4 THEN trunc(file_size::numeric / 1024^3, 1)::text || ' GB'
-                    ELSE trunc(file_size::numeric / 1024^4, 1)::text || ' TB'
+                    WHEN file_size < 1000 THEN file_size::text || ' B'
+                    WHEN file_size < 1000^2 THEN trunc(file_size::numeric / 1000, 1)::text || ' KB'
+                    WHEN file_size < 1000^3 THEN trunc(file_size::numeric / 1000^2, 1)::text || ' MB'
+                    WHEN file_size < 1000^4 THEN trunc(file_size::numeric / 1000^3, 1)::text || ' GB'
+                    ELSE trunc(file_size::numeric / 1000^4, 1)::text || ' TB'
                 END,
                 to_char(last_modified, 'YYYY-MM-DD HH24:MI:SS')
                 FROM hashes WHERE id = $ID;")
