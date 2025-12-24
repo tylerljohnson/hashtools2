@@ -1,7 +1,23 @@
 
-Tasks that need to be done when listing outdated vault files:
-  run ./bin/find-unvaulted-primaries.bash | cut -f 5,8,9
-This returns a list of :vault_id, primary_last_modified & vault_full_path
-For each result
-  1. in fs: set last modified timestamp of {vault_full_path} to the value {primary_last_modified}
-  2. in db: run sql update hashes set last_modified = {primary_last_modified} where id = {vault_id}
+### Find (and update) oudated vault files
+
+This is how to find (and update) vault files that are out of date as compared to the duplicate which is older.
+
+1. List the vault and older duplicate files:
+    ```bash
+    $ ./bin/find-unvaulted-primaries.bash | cut -f 5,8,9 > all.tsv
+    ```
+2. Create a file of data to fix them:
+    ```bash
+    $ ./bin/find-unvaulted-primaries.bash | cut -f 5,8,9 > data-to-fix.tsv
+    ```
+3. Now run those fixes against the filesystem AND databsae:
+    ```bash
+    $ ./bin/fix-unvaulted-primaries.bash data-to-fix.tsv
+    ```
+
+### View a file(s) via its id in the terminal
+    this will use `imgcat` to view the image with the given id in the terminal.
+    ```bash
+    $ ./bin/viewById.bash 123 [more-ids]
+    ```
