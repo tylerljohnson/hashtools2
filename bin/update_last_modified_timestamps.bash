@@ -24,6 +24,7 @@ DB_USER=${PGUSER:-tyler}
 DB_NAME=${PGDATABASE:-tyler}
 
 FORCE=false
+DEBUG=false
 INPUT_FILE=""
 
 # Parse arguments
@@ -31,6 +32,10 @@ while [[ $# -gt 0 ]]; do
     case $1 in
         --force)
             FORCE=true
+            shift
+            ;;
+        --debug)
+            DEBUG=true
             shift
             ;;
         -*)
@@ -46,7 +51,7 @@ while [[ $# -gt 0 ]]; do
 done
 
 if [ -z "$INPUT_FILE" ]; then
-    echo "Usage: $0 [--force] <tsv_file>"
+    echo "Usage: $0 [--force] [--debug] <tsv_file>"
     exit 1
 fi
 
@@ -79,38 +84,68 @@ echo "Reading from: $INPUT_FILE"
 while IFS=$'\t' read -r vault_id primary_last_modified vault_full_path || [ -n "$vault_id" ]; do
     ((line_num++))
 
+    if [ "$DEBUG" = true ]; then
+        echo "[DEBUG Line $line_num] Raw input: vault_id='$vault_id', ts='$primary_last_modified', path='$vault_full_path'"
+    fi
+
     # Clean inputs (handle CRLF and extra whitespace)
     vault_id=$(echo "$vault_id" | tr -d '\r' | xargs)
     primary_last_modified=$(echo "$primary_last_modified" | tr -d '\r' | xargs)
     vault_full_path=$(echo "$vault_full_path" | tr -d '\r' | xargs)
 
-    # Skip empty lines
-    [[ -z "$vault_id" ]] && continue
-    # Skip the header row if it's the standard header
-    [[ "$vault_id" == "vault_id" ]] && continue
-    # If vault_id is not a number, skip it
-    [[ ! "$vault_id" =~ ^[0-9]+$ ]] && continue
+    if [ "$DEBUG" = true ]; then
+        echo "[DEBUG Line $line_num] Cleaned: vault_id='$vault_id', ts='$primary_last_modified', path='$vault_full_path'"
+    fi
 
-    if [ "$FORCE" = true ] || [ -e "$vault_full_path" ]; then
+    # Skip empty lines
+    if [[ -z "$vault_id" ]]; then
+        [ "$DEBUG" = true ] && echo "[DEBUG Line $line_num] Skipping: Empty vault_id"
+        continue
+    fi
+    # Skip the header row if it's the standard header
+    if [[ "$vault_id" == "vault_id" ]]; then
+        [ "$DEBUG" = true ] && echo "[DEBUG Line $line_num] Skipping: Header detected"
+        continue
+    fi
+    # If vault_id is not a number, skip it
+    if [[ ! "$vault_id" =~ ^[0-9]+$ ]]; then
+        [ "$DEBUG" = true ] && echo "[DEBUG Line $line_num] Skipping: vault_id '$vault_id' is not numeric"
+        continue
+    fi
+
+    FILE_EXISTS=false
+    if [ -e "$vault_full_path" ]; then FILE_EXISTS=true; fi
+
+    if [ "$DEBUG" = true ]; then
+        echo "[DEBUG Line $line_num] File exists: $FILE_EXISTS, Force: $FORCE"
+    fi
+
+    if [ "$FORCE" = true ] || [ "$FILE_EXISTS" = true ]; then
         TOUCH_SUCCESS=false
 
-        if [ -e "$vault_full_path" ]; then
+        if [ "$FILE_EXISTS" = true ]; then
             if [ "$IS_MAC" = true ]; then
                 # macOS (BSD) touch requires [[CC]YY]MMDDhhmm[.ss]
                 MAC_DATE=$(echo "$primary_last_modified" | sed 's/[- : ]//g' | sed 's/\(..\)$/.\1/')
+                [ "$DEBUG" = true ] && echo "[DEBUG Line $line_num] macOS touch date: $MAC_DATE"
                 if touch -mt "$MAC_DATE" "$vault_full_path" 2>/dev/null; then
                     TOUCH_SUCCESS=true
                 fi
             else
                 # Linux (GNU) touch handles "YYYY-MM-DD HH:MM:SS" directly
+                [ "$DEBUG" = true ] && echo "[DEBUG Line $line_num] Linux touch date: $primary_last_modified"
                 if touch -c -d "$primary_last_modified" "$vault_full_path" 2>/dev/null; then
                     TOUCH_SUCCESS=true
                 fi
             fi
         fi
 
+        if [ "$DEBUG" = true ]; then
+            echo "[DEBUG Line $line_num] Touch success: $TOUCH_SUCCESS"
+        fi
+
         # If touch worked, OR if we are forcing and the file doesn't exist, queue the DB update
-        if [ "$TOUCH_SUCCESS" = true ] || { [ "$FORCE" = true ] && [ ! -e "$vault_full_path" ]; }; then
+        if [ "$TOUCH_SUCCESS" = true ] || { [ "$FORCE" = true ] && [ "$FILE_EXISTS" = false ]; }; then
             echo "UPDATE hashes SET last_modified = '$primary_last_modified'::TIMESTAMP WHERE id = $vault_id;" >> "$SQL_FILE"
             ((count_ok++))
             if [ -e "$vault_full_path" ]; then
