@@ -75,6 +75,7 @@ line_num=0
 echo "Reading from: $INPUT_FILE"
 
 # IFS=$'\t' ensures we split columns by tabs, preserving spaces in timestamps/paths
+# || [ -n "$vault_id" ] ensures the last line is processed even if it lacks a trailing newline
 while IFS=$'\t' read -r vault_id primary_last_modified vault_full_path || [ -n "$vault_id" ]; do
     ((line_num++))
 
@@ -83,27 +84,32 @@ while IFS=$'\t' read -r vault_id primary_last_modified vault_full_path || [ -n "
     primary_last_modified=$(echo "$primary_last_modified" | tr -d '\r' | xargs)
     vault_full_path=$(echo "$vault_full_path" | tr -d '\r' | xargs)
 
-    # Skip empty lines or the header row
+    # Skip empty lines
     [[ -z "$vault_id" ]] && continue
-    # If vault_id is not a number, skip it (it's the header)
+    # Skip the header row if it's the standard header
+    [[ "$vault_id" == "vault_id" ]] && continue
+    # If vault_id is not a number, skip it
     [[ ! "$vault_id" =~ ^[0-9]+$ ]] && continue
 
     if [ "$FORCE" = true ] || [ -e "$vault_full_path" ]; then
         TOUCH_SUCCESS=false
 
-        if [ "$IS_MAC" = true ]; then
-            # macOS (BSD) touch requires [[CC]YY]MMDDhhmm[.ss]
-            MAC_DATE=$(echo "$primary_last_modified" | sed 's/[- : ]//g' | sed 's/\(..\)$/.\1/')
-            if touch -mt "$MAC_DATE" "$vault_full_path" 2>/dev/null; then
-                TOUCH_SUCCESS=true
-            fi
-        else
-            # Linux (GNU) touch handles "YYYY-MM-DD HH:MM:SS" directly
-            if touch -c -d "$primary_last_modified" "$vault_full_path" 2>/dev/null; then
-                TOUCH_SUCCESS=true
+        if [ -e "$vault_full_path" ]; then
+            if [ "$IS_MAC" = true ]; then
+                # macOS (BSD) touch requires [[CC]YY]MMDDhhmm[.ss]
+                MAC_DATE=$(echo "$primary_last_modified" | sed 's/[- : ]//g' | sed 's/\(..\)$/.\1/')
+                if touch -mt "$MAC_DATE" "$vault_full_path" 2>/dev/null; then
+                    TOUCH_SUCCESS=true
+                fi
+            else
+                # Linux (GNU) touch handles "YYYY-MM-DD HH:MM:SS" directly
+                if touch -c -d "$primary_last_modified" "$vault_full_path" 2>/dev/null; then
+                    TOUCH_SUCCESS=true
+                fi
             fi
         fi
 
+        # If touch worked, OR if we are forcing and the file doesn't exist, queue the DB update
         if [ "$TOUCH_SUCCESS" = true ] || { [ "$FORCE" = true ] && [ ! -e "$vault_full_path" ]; }; then
             echo "UPDATE hashes SET last_modified = '$primary_last_modified'::TIMESTAMP WHERE id = $vault_id;" >> "$SQL_FILE"
             ((count_ok++))
