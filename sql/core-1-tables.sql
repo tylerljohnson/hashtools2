@@ -10,14 +10,9 @@
 --
 -- ==============================================================================
 
-
--- ==================================================
--- Drop and rebuild tables
--- ==================================================
-
-
 DROP TABLE IF EXISTS hashes CASCADE;
 
+-- this table stores the meta for the pool of files we want to dedupe
 CREATE TABLE hashes
 (
     id            BIGSERIAL PRIMARY KEY,                                                    -- artificial primary key
@@ -31,4 +26,5 @@ CREATE TABLE hashes
     UNIQUE (full_path)                                                                      -- full_path is required to be unique
 );
 
+-- start at a known value
 ALTER SEQUENCE hashes_id_seq RESTART WITH 1000001;
