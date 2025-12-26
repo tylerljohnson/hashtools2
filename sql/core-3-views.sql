@@ -11,15 +11,7 @@
 --        * <base>_redundant: Duplicate copies that can be safely archived or deleted.
 -- ==============================================================================
 
-
--- ==================================================
--- Drop & Rebuild Views (renamed, simplified)
--- Naming pattern: <base>, <base>_primary, <base>_redundant
--- Bases: files (all), media (image+video+audio), images, videos, audio
--- ==================================================
-
-
--- Drop old/new views defensively
+-- Drop views defensively
 DROP VIEW IF EXISTS
     files, files_primary, files_redundant,
     media, media_primary, media_redundant,

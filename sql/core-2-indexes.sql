@@ -9,11 +9,6 @@
 --
 -- ==============================================================================
 
--- ==================================================
--- Drop and Rebuild Indexes
--- ==================================================
-
-
 -- Drop existing indexes (ignore errors if not present)
 DO
 $$
@@ -26,6 +21,8 @@ $$
         EXECUTE 'DROP INDEX IF EXISTS idx_hashes_covering_window;';
     END
 $$;
+
+-- create indexes
 
 CREATE INDEX idx_hashes_hash ON hashes (hash);
 CREATE INDEX idx_hashes_mime_type ON hashes (mime_type);
