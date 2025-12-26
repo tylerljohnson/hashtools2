@@ -20,15 +20,15 @@ DROP TABLE IF EXISTS hashes CASCADE;
 
 CREATE TABLE hashes
 (
-    id            BIGSERIAL PRIMARY KEY,
-    hash          CHAR(40)                                                        NOT NULL, -- SHA-1 hex
-    mime_type     TEXT                                                            NOT NULL,
+    id            BIGSERIAL PRIMARY KEY,                                                    -- artificial primary key
+    hash          CHAR(40)                                                        NOT NULL, -- SHA-1 hex, lowercase, of the file contents
+    mime_type     TEXT                                                            NOT NULL, -- MIME type of the file, lowercase
     last_modified TIMESTAMP                                                       NOT NULL, -- in local time (CST preferred)
     file_size     BIGINT                                                          NOT NULL, -- bytes
-    base_path     TEXT                                                            NOT NULL,
+    base_path     TEXT                                                            NOT NULL, -- common root directory (or mount point of device/share)
     file_path     TEXT                                                            NOT NULL, -- relative to base_path
-    full_path     TEXT GENERATED ALWAYS AS (base_path || '/' || file_path) STORED NOT NULL,
-    UNIQUE (full_path)
+    full_path     TEXT GENERATED ALWAYS AS (base_path || '/' || file_path) STORED NOT NULL, -- absolute path, computed from base_path and file_path
+    UNIQUE (full_path)                                                                      -- full_path is required to be unique
 );
 
 ALTER SEQUENCE hashes_id_seq RESTART WITH 1000001;
