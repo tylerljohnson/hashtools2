@@ -3,18 +3,22 @@
 # preview.bash
 #
 # Purpose:
-#   Given a MIME type and a file path, renders a CLI preview using preferred tools.
-#   Designed to be called by vault_timestamp_drift_fix.bash, but usable standalone.
+#   Renders a CLI preview of a file using preferred tools.
+#   MIME type is optional; if not supplied, the script will try to detect it.
 #
-# Examples:
-#   preview.bash --mime image/jpeg --path /some/file.jpg --center --width-third
-#   preview.bash --mime application/pdf --path doc.pdf
+# Usage:
+#   preview.bash [options] <path>
+#   preview.bash [options] -- <path>        # if path begins with '-'
+#
+# Strictness:
+#   - Exactly ONE positional <path> is required.
+#   - Unknown options are errors.
+#   - Invalid option values are errors (e.g., non-integer widths, invalid mime strings).
 #
 
 set -euo pipefail
 
 MIME=""
-PATH_ARG=""
 CENTER=false
 WIDTH_THIRD=false
 MAX_WIDTH=120
@@ -24,45 +28,128 @@ TEXT_LINES=60
 usage() {
   cat <<'EOF'
 Usage:
-  preview.bash --mime <mime-type> --path <file> [options]
+  preview.bash [options] <path>
 
-Required:
-  --mime MIME
-  --path PATH
+Positional:
+  <path>            file to preview (required; exactly one)
 
 Options:
-  --center          Center output where possible (best effort)
-  --width-third     Use terminal-width/3 as target width (clamped to --max-width)
-  --max-width N     Default 120
-  --max-height N    Default 24 (used by image previewers)
-  --text-lines N    Default 60 (for text-ish previews)
-  -h|--help         Help
+  --mime MIME       preferred; if omitted, MIME is detected when possible
+  --center          center output where possible (best effort)
+  --width-third     use terminal-width/3 as target width (clamped to --max-width)
+  --max-width N     integer >= 20 (default 120)
+  --max-height N    integer >= 4  (default 24; used by image previewers)
+  --text-lines N    integer >= 1  (default 60; for text-ish previews)
+  --               end options (useful if path begins with '-')
+  -h|--help         help
 EOF
 }
-
-while [[ $# -gt 0 ]]; do
-  case "$1" in
-    --mime) MIME="$2"; shift 2;;
-    --path) PATH_ARG="$2"; shift 2;;
-    --center) CENTER=true; shift;;
-    --width-third) WIDTH_THIRD=true; shift;;
-    --max-width) MAX_WIDTH="$2"; shift 2;;
-    --max-height) MAX_HEIGHT="$2"; shift 2;;
-    --text-lines) TEXT_LINES="$2"; shift 2;;
-    -h|--help) usage; exit 0;;
-    *) echo "ERROR: Unknown arg: $1" >&2; usage; exit 2;;
-  esac
-done
-
-if [[ -z "$MIME" || -z "$PATH_ARG" ]]; then
-  echo "ERROR: --mime and --path are required" >&2
-  usage
-  exit 2
-fi
 
 have() { command -v "$1" >/dev/null 2>&1; }
 have_bat() { have bat || have batcat; }
 
+die() { echo "ERROR: $*" >&2; usage; exit 2; }
+
+require_value() {
+  local opt="$1"
+  [[ $# -ge 2 ]] || die "$opt requires a value"
+  local val="$2"
+  [[ -n "$val" ]] || die "$opt requires a non-empty value"
+  [[ "$val" != -* ]] || die "$opt value looks like an option: '$val'"
+}
+
+require_int_ge() {
+  local opt="$1" val="$2" min="$3"
+  [[ "$val" =~ ^[0-9]+$ ]] || die "$opt value must be an integer >= $min; got '$val'"
+  (( val >= min )) || die "$opt value must be >= $min; got '$val'"
+}
+
+normalize_and_validate_mime() {
+  local m="$1"
+  m="${m,,}" # lowercase
+  # Basic MIME validation: type/subtype with common token chars
+  if [[ ! "$m" =~ ^[a-z0-9][a-z0-9!#\$&\^_.+-]*/[a-z0-9][a-z0-9!#\$&\^_.+-]*$ ]]; then
+    die "--mime value is not a valid mime-type string: '$1'"
+  fi
+  printf "%s" "$m"
+}
+
+# -------------------------------
+# Arg parsing (strict)
+# -------------------------------
+positional=()
+end_opts=false
+
+while [[ $# -gt 0 ]]; do
+  if ! $end_opts; then
+    case "$1" in
+      --mime)
+        require_value "--mime" "${2-}"
+        MIME="$(normalize_and_validate_mime "$2")"
+        shift 2
+        continue
+        ;;
+      --center)
+        CENTER=true
+        shift
+        continue
+        ;;
+      --width-third)
+        WIDTH_THIRD=true
+        shift
+        continue
+        ;;
+      --max-width)
+        require_value "--max-width" "${2-}"
+        require_int_ge "--max-width" "$2" 20
+        MAX_WIDTH="$2"
+        shift 2
+        continue
+        ;;
+      --max-height)
+        require_value "--max-height" "${2-}"
+        require_int_ge "--max-height" "$2" 4
+        MAX_HEIGHT="$2"
+        shift 2
+        continue
+        ;;
+      --text-lines)
+        require_value "--text-lines" "${2-}"
+        require_int_ge "--text-lines" "$2" 1
+        TEXT_LINES="$2"
+        shift 2
+        continue
+        ;;
+      -h|--help)
+        usage
+        exit 0
+        ;;
+      --)
+        end_opts=true
+        shift
+        continue
+        ;;
+      -*)
+        die "Unknown option: $1"
+        ;;
+      *)
+        positional+=("$1")
+        shift
+        continue
+        ;;
+    esac
+  else
+    positional+=("$1")
+    shift
+  fi
+done
+
+[[ ${#positional[@]} -eq 1 ]] || die "Exactly one <path> positional arg is required; got ${#positional[@]}"
+PATH_ARG="${positional[0]}"
+
+# -------------------------------
+# Layout helpers
+# -------------------------------
 indent_center() {
   local content_width="$1"
   local cols
@@ -74,6 +161,17 @@ indent_center() {
   sed "s/^/${spaces}/"
 }
 
+# -------------------------------
+# Validate path
+# -------------------------------
+if [[ ! -e "$PATH_ARG" ]]; then
+  echo "(preview skipped: file not found: $PATH_ARG)"
+  exit 0
+fi
+
+# -------------------------------
+# Width/height selection
+# -------------------------------
 cols="$(tput cols 2>/dev/null || echo 120)"
 w="$MAX_WIDTH"
 h="$MAX_HEIGHT"
@@ -92,12 +190,53 @@ center_pipe() {
   fi
 }
 
-if [[ ! -e "$PATH_ARG" ]]; then
-  echo "(preview skipped: file not found: $PATH_ARG)"
-  exit 0
+# -------------------------------
+# MIME detection (if needed)
+# -------------------------------
+detect_mime() {
+  local file="$1"
+
+  if have file; then
+    local mt
+    mt="$(file --brief --mime-type -- "$file" 2>/dev/null || true)"
+    if [[ -n "$mt" ]]; then
+      printf "%s" "${mt,,}"
+      return 0
+    fi
+  fi
+
+  case "${file##*.}" in
+    jpg|jpeg) echo "image/jpeg" ;;
+    png) echo "image/png" ;;
+    gif) echo "image/gif" ;;
+    webp) echo "image/webp" ;;
+    heic) echo "image/heic" ;;
+    tif|tiff) echo "image/tiff" ;;
+    bmp) echo "image/bmp" ;;
+    svg) echo "image/svg+xml" ;;
+    pdf) echo "application/pdf" ;;
+    mp4|m4v) echo "video/mp4" ;;
+    mov) echo "video/quicktime" ;;
+    mkv) echo "video/x-matroska" ;;
+    avi) echo "video/x-msvideo" ;;
+    mp3) echo "audio/mpeg" ;;
+    wav) echo "audio/vnd.wave" ;;
+    json) echo "application/json" ;;
+    xml) echo "application/xml" ;;
+    html|htm) echo "text/html" ;;
+    txt|log) echo "text/plain" ;;
+    *) echo "application/octet-stream" ;;
+  esac
+}
+
+if [[ -z "$MIME" ]]; then
+  MIME="$(detect_mime "$PATH_ARG")"
+  # detected MIME is best-effort; keep it even if it's octet-stream
 fi
 
-# --- Helpers for text output ---
+# -------------------------------
+# Text helper
+# -------------------------------
 print_text_head() {
   local file="$1"
   local n="$2"
@@ -112,6 +251,9 @@ print_text_head() {
   fi
 }
 
+# -------------------------------
+# Preview dispatch
+# -------------------------------
 case "$MIME" in
   image/*)
     if have imgcat; then
@@ -240,9 +382,8 @@ case "$MIME" in
   *)
     if have file; then
       file --brief --mime-type --mime-encoding -- "$PATH_ARG"
-    else
-      echo "(preview skipped: install file)"
     fi
+    print_text_head "$PATH_ARG" "$TEXT_LINES"
     ;;
 esac
 
