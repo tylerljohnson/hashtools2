@@ -250,7 +250,7 @@ print_text_head() {
 case "$MIME" in
   image/*)
     if have imgcat; then
-      imgcat -w "$w" -- "$PATH_ARG" | center_pipe
+      imgcat -W "$w" "$PATH_ARG" | center_pipe
       exit 0
     fi
     if have chafa; then
