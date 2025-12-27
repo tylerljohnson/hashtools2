@@ -19,8 +19,8 @@
 #   Use --commit to actually apply filesystem + DB changes.
 #
 # Tooling:
-#   Use --install-tools to see recommended install commands for missing preview tools,
-#   then exit without processing any rows.
+#   Use --install-tools to check for the best preview tools (core + extras)
+#   and print suggested install command lines, then exit without processing rows.
 #
 
 set -euo pipefail
@@ -49,7 +49,7 @@ Options:
   --db   DB             (default: tyler)
   --commit              actually apply filesystem + DB changes (default: preview only)
   --delete              use rm --force instead of trash when removing files
-  --install-tools       show recommended install commands for missing preview tools, then exit
+  --install-tools       print recommended install commands for missing preview tools, then exit
   -h|--help             show help
 EOF
 }
@@ -72,26 +72,68 @@ IS_MAC=false
 [[ "${OSTYPE:-}" == darwin* ]] && IS_MAC=true
 
 have() { command -v "$1" >/dev/null 2>&1; }
+have_bat() { have bat || have batcat; }
 
+# -------------------------------
+# Tool install suggestions
+# -------------------------------
 print_install_suggestions_and_exit() {
-  local -a pkgs=()
+  local -a core_pkgs=()
+  local -a extra_pkgs=()
   local -a notes=()
 
+  add_unique() {
+    local pkg="$1"; shift
+    local -n arr="$1"
+    local x
+    for x in "${arr[@]:-}"; do
+      [[ "$x" == "$pkg" ]] && return 0
+    done
+    arr+=("$pkg")
+  }
+
+  # ---- Core tool checks (broad coverage) ----
+  # images: chafa (plus imgcat if available)
+  # video/audio: ffprobe (ffmpeg), mediainfo
+  # pdf: poppler utils (pdftotext/pdfinfo/pdftoppm)
+  # text/json/xml: bat, jq, xmllint, rg
+  # archives: 7z, unzip, tar/gzip/bzip2/xz
+  # anything: file, strings, xxd, sqlite3
   if $IS_MAC; then
-    have chafa     || pkgs+=("chafa")
-    have ffprobe   || pkgs+=("ffmpeg")
-    have mediainfo || pkgs+=("mediainfo")
-    (have pdftotext && have pdfinfo && have pdftoppm) || pkgs+=("poppler")
-    have jq        || pkgs+=("jq")
-    have bat       || pkgs+=("bat")
-    have 7z        || pkgs+=("p7zip")
-    have unzip     || pkgs+=("unzip")
+    have chafa       || add_unique "chafa" core_pkgs
+    have ffprobe     || add_unique "ffmpeg" core_pkgs
+    have mediainfo   || add_unique "mediainfo" core_pkgs
+    (have pdftotext && have pdfinfo && have pdftoppm) || add_unique "poppler" core_pkgs
+    have jq          || add_unique "jq" core_pkgs
+    have rg          || add_unique "ripgrep" core_pkgs
+    have_bat         || add_unique "bat" core_pkgs
+    have 7z          || add_unique "p7zip" core_pkgs
+    have unzip       || add_unique "unzip" core_pkgs
+    have exiftool    || add_unique "exiftool" core_pkgs
+    have xmllint     || add_unique "libxml2" core_pkgs
+    have sqlite3     || add_unique "sqlite" core_pkgs
+
+    # these are typically present on macOS, but check anyway
+    have file        || notes+=("file not found (unexpected on macOS).")
+    have strings     || add_unique "binutils" core_pkgs
+    have xxd         || notes+=("xxd not found: install vim or ensure xxd is on PATH (usually present).")
 
     if ! have imgcat; then
-      notes+=("imgcat not found: enable iTerm2 Shell Integration or put imgcat on PATH for best image/PDF-frame previews.")
+      notes+=("imgcat not found: enable iTerm2 Shell Integration (best inline image/PDF-frame previews).")
     fi
 
-    if ((${#pkgs[@]} == 0)); then
+    # ---- Good extras (based on your MIME list) ----
+    have cabextract  || add_unique "cabextract" extra_pkgs
+    have msiextract  || add_unique "msitools" extra_pkgs
+    have readpst     || add_unique "libpst" extra_pkgs
+    have ripmime     || add_unique "ripmime" extra_pkgs
+    have munpack     || add_unique "mpack" extra_pkgs
+    have formail     || add_unique "procmail" extra_pkgs
+    have catdoc      || add_unique "catdoc" extra_pkgs
+    have antiword    || add_unique "antiword" extra_pkgs
+    have unrtf       || add_unique "unrtf" extra_pkgs
+
+    if ((${#core_pkgs[@]} == 0 && ${#extra_pkgs[@]} == 0)); then
       echo "All recommended preview tools are already available."
       ((${#notes[@]} > 0)) && printf "%s\n" "${notes[@]}"
       exit 0
@@ -99,43 +141,95 @@ print_install_suggestions_and_exit() {
 
     if ! have brew; then
       echo "Missing tools detected, but Homebrew (brew) is not installed."
-      echo "Install Homebrew, then run:"
-      echo "  brew install ${pkgs[*]}"
+      if ((${#core_pkgs[@]} > 0)); then
+        echo "Core:"
+        echo "  brew install ${core_pkgs[*]}"
+      fi
+      if ((${#extra_pkgs[@]} > 0)); then
+        echo "Extras:"
+        echo "  brew install ${extra_pkgs[*]}"
+      fi
       ((${#notes[@]} > 0)) && printf "%s\n" "${notes[@]}"
       exit 0
     fi
 
-    echo "Recommended installs (macOS/Homebrew):"
-    echo "  brew install ${pkgs[*]}"
+    if ((${#core_pkgs[@]} > 0)); then
+      echo "Recommended installs (macOS/Homebrew) - Core:"
+      echo "  brew install ${core_pkgs[*]}"
+    else
+      echo "Recommended installs (macOS/Homebrew) - Core: (none missing)"
+    fi
+
+    if ((${#extra_pkgs[@]} > 0)); then
+      echo "Recommended installs (macOS/Homebrew) - Extras:"
+      echo "  brew install ${extra_pkgs[*]}"
+    else
+      echo "Recommended installs (macOS/Homebrew) - Extras: (none missing)"
+    fi
+
     ((${#notes[@]} > 0)) && printf "%s\n" "${notes[@]}"
     exit 0
 
   else
-    have chafa     || pkgs+=("chafa")
-    have ffprobe   || pkgs+=("ffmpeg")
-    have mediainfo || pkgs+=("mediainfo")
-    (have pdftotext && have pdfinfo && have pdftoppm) || pkgs+=("poppler-utils")
-    have jq        || pkgs+=("jq")
-    (have bat || have batcat) || pkgs+=("bat")
-    have 7z        || pkgs+=("p7zip-full")
-    have unzip     || pkgs+=("unzip")
-    have file      || pkgs+=("file")
+    # Pop!_OS / Ubuntu packages
+    have chafa       || add_unique "chafa" core_pkgs
+    have ffprobe     || add_unique "ffmpeg" core_pkgs
+    have mediainfo   || add_unique "mediainfo" core_pkgs
+    (have pdftotext && have pdfinfo && have pdftoppm) || add_unique "poppler-utils" core_pkgs
+    have jq          || add_unique "jq" core_pkgs
+    have rg          || add_unique "ripgrep" core_pkgs
+    have_bat         || add_unique "bat" core_pkgs
+    have 7z          || add_unique "p7zip-full" core_pkgs
+    have unzip       || add_unique "unzip" core_pkgs
+    have file        || add_unique "file" core_pkgs
+    have tar         || add_unique "tar" core_pkgs
+    have gzip        || add_unique "gzip" core_pkgs
+    have bzip2       || add_unique "bzip2" core_pkgs
+    have xz          || add_unique "xz-utils" core_pkgs
+    have exiftool    || add_unique "libimage-exiftool-perl" core_pkgs
+    have strings     || add_unique "binutils" core_pkgs
+    have xxd         || add_unique "xxd" core_pkgs
+    have sqlite3     || add_unique "sqlite3" core_pkgs
+    have xmllint     || add_unique "libxml2-utils" core_pkgs
 
     if have batcat && ! have bat; then
       notes+=("bat is installed as 'batcat'. Optional: sudo ln -s /usr/bin/batcat /usr/local/bin/bat")
     fi
     if ! have imgcat; then
-      notes+=("imgcat not found: optional for iTerm2 image display. chafa covers images without imgcat.")
+      notes+=("imgcat not found: optional for iTerm2 inline images. chafa covers images without imgcat.")
     fi
 
-    if ((${#pkgs[@]} == 0)); then
+    # Extras
+    have cabextract  || add_unique "cabextract" extra_pkgs
+    have msiextract  || add_unique "msitools" extra_pkgs
+    have readpst     || add_unique "libpst-utils" extra_pkgs
+    have ripmime     || add_unique "ripmime" extra_pkgs
+    have munpack     || add_unique "mpack" extra_pkgs
+    have formail     || add_unique "procmail" extra_pkgs
+    have catdoc      || add_unique "catdoc" extra_pkgs
+    have antiword    || add_unique "antiword" extra_pkgs
+    have unrtf       || add_unique "unrtf" extra_pkgs
+
+    if ((${#core_pkgs[@]} == 0 && ${#extra_pkgs[@]} == 0)); then
       echo "All recommended preview tools are already available."
       ((${#notes[@]} > 0)) && printf "%s\n" "${notes[@]}"
       exit 0
     fi
 
-    echo "Recommended installs (Pop!_OS / apt):"
-    echo "  sudo apt update && sudo apt install ${pkgs[*]}"
+    if ((${#core_pkgs[@]} > 0)); then
+      echo "Recommended installs (Pop!_OS / apt) - Core:"
+      echo "  sudo apt update && sudo apt install ${core_pkgs[*]}"
+    else
+      echo "Recommended installs (Pop!_OS / apt) - Core: (none missing)"
+    fi
+
+    if ((${#extra_pkgs[@]} > 0)); then
+      echo "Recommended installs (Pop!_OS / apt) - Extras:"
+      echo "  sudo apt update && sudo apt install ${extra_pkgs[*]}"
+    else
+      echo "Recommended installs (Pop!_OS / apt) - Extras: (none missing)"
+    fi
+
     ((${#notes[@]} > 0)) && printf "%s\n" "${notes[@]}"
     exit 0
   fi
@@ -146,6 +240,9 @@ if $INSTALL_TOOLS; then
   print_install_suggestions_and_exit
 fi
 
+# -------------------------------
+# psql config / validation
+# -------------------------------
 if ! have psql; then
   echo "ERROR: psql not found in PATH" >&2
   exit 1
@@ -224,6 +321,10 @@ preview_vault_file_centered() {
 
   case "$mime" in
     image/*)
+      if have imgcat; then
+        imgcat -w "$w" -- "$path" | indent_center "$w"
+        return 0
+      fi
       if have chafa; then
         chafa --size="${w}x${h}" -- "$path" | indent_center "$w"
         return 0
@@ -232,11 +333,7 @@ preview_vault_file_centered() {
         viu -w "$w" -- "$path" | indent_center "$w"
         return 0
       fi
-      if have imgcat; then
-        imgcat -w "$w" -- "$path" | indent_center "$w"
-        return 0
-      fi
-      echo "(preview skipped: install chafa or viu; imgcat is iTerm2-only)"
+      echo "(preview skipped: install imgcat (iTerm2), chafa, or viu)"
       ;;
 
     video/*)
@@ -268,39 +365,85 @@ preview_vault_file_centered() {
       ;;
 
     application/pdf)
-      if have pdftotext; then
-        pdftotext -f 1 -l 1 -layout -- "$path" - 2>/dev/null | head -n 30
-        return 0
-      fi
+      # lightweight textual peek by default
       if have pdfinfo; then
-        pdfinfo -- "$path" | head -n 30
+        pdfinfo -- "$path" | head -n 20
+      fi
+      if have pdftotext; then
+        pdftotext -f 1 -l 1 -layout -- "$path" - 2>/dev/null | head -n 20
         return 0
       fi
-      echo "(preview skipped: install poppler utils (pdftotext/pdfinfo))"
+      echo "(preview skipped: install poppler utils)"
       ;;
 
-    text/*|application/json|application/xml)
-      (head -n 30 -- "$path" 2>/dev/null || true)
+    application/json)
+      if have jq; then
+        (head -c 200000 -- "$path" 2>/dev/null || true) | jq . 2>/dev/null | head -n 40
+      else
+        (head -n 40 -- "$path" 2>/dev/null || true)
+      fi
       ;;
 
-    application/zip)
+    application/xml|application/xhtml+xml|application/xml-dtd|application/rss+xml|application/atom+xml|application/wsdl+xml|application/xslt+xml|application/rdf+xml|image/svg+xml)
+      if have xmllint; then
+        xmllint --format --recover --nocdata --nowarning -- "$path" 2>/dev/null | head -n 40
+      else
+        (head -n 40 -- "$path" 2>/dev/null || true)
+      fi
+      ;;
+
+    text/*|text/javascript)
+      if have_bat; then
+        if have bat; then bat --style=plain --paging=never --line-range=1:60 -- "$path" 2>/dev/null || head -n 60 -- "$path"; fi
+        if ! have bat && have batcat; then batcat --style=plain --paging=never --line-range=1:60 -- "$path" 2>/dev/null || head -n 60 -- "$path"; fi
+      else
+        (head -n 60 -- "$path" 2>/dev/null || true)
+      fi
+      ;;
+
+    application/zip|application/java-archive|application/vnd.android.package-archive|application/epub+zip)
       if have unzip; then
-        unzip -l -- "$path" | head -n 30
+        unzip -l -- "$path" | head -n 40
         return 0
       fi
-      echo "(preview skipped: install unzip)"
+      if have 7z; then
+        7z l -- "$path" | head -n 60
+        return 0
+      fi
+      echo "(preview skipped: install unzip or p7zip)"
       ;;
 
-    application/x-tar|application/gzip|application/x-gzip|application/x-7z-compressed|application/x-bzip2)
+    application/x-7z-compressed|application/x-rar-compressed|application/x-tar|application/gzip|application/x-bzip2|application/x-xz|application/x-lzip|application/x-compress|application/x-cpio|application/x-gtar|application/x-archive)
+      if have 7z; then
+        7z l -- "$path" | head -n 60
+        return 0
+      fi
       if [[ "$mime" == application/x-tar* ]] && have tar; then
-        tar -tf -- "$path" 2>/dev/null | head -n 30
+        tar -tf -- "$path" 2>/dev/null | head -n 40
         return 0
       fi
-      if [[ "$mime" == application/x-7z-compressed ]] && have 7z; then
-        7z l -- "$path" | head -n 40
+      echo "(preview skipped: install p7zip-full)"
+      ;;
+
+    application/vnd.ms-outlook-pst)
+      if have readpst; then
+        readpst -D -o /dev/null -- "$path" 2>/dev/null | head -n 40 || true
         return 0
       fi
-      echo "(preview skipped: install tar/7z tools)"
+      echo "(preview skipped: install libpst-utils / libpst)"
+      ;;
+
+    message/rfc822|multipart/*|application/mbox)
+      if have ripmime; then
+        ripmime -i "$path" -d /tmp 2>/dev/null | head -n 40 || true
+        return 0
+      fi
+      (head -n 60 -- "$path" 2>/dev/null || true)
+      ;;
+
+    application/octet-stream|application/x-msdownload|application/x-dosexec|application/x-executable|application/x-mach-o-executable|application/java-vm|application/java-serialized-object)
+      if have file; then file --brief --mime-type --mime-encoding -- "$path"; fi
+      if have strings; then strings -n 8 -- "$path" 2>/dev/null | head -n 30 || true; fi
       ;;
 
     *)
