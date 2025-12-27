@@ -92,14 +92,8 @@ print_install_suggestions_and_exit() {
     arr+=("$pkg")
   }
 
-  # ---- Core tool checks (broad coverage) ----
-  # images: chafa (plus imgcat if available)
-  # video/audio: ffprobe (ffmpeg), mediainfo
-  # pdf: poppler utils (pdftotext/pdfinfo/pdftoppm)
-  # text/json/xml: bat, jq, xmllint, rg
-  # archives: 7z, unzip, tar/gzip/bzip2/xz
-  # anything: file, strings, xxd, sqlite3
   if $IS_MAC; then
+    # ---- Core ----
     have chafa       || add_unique "chafa" core_pkgs
     have ffprobe     || add_unique "ffmpeg" core_pkgs
     have mediainfo   || add_unique "mediainfo" core_pkgs
@@ -112,17 +106,13 @@ print_install_suggestions_and_exit() {
     have exiftool    || add_unique "exiftool" core_pkgs
     have xmllint     || add_unique "libxml2" core_pkgs
     have sqlite3     || add_unique "sqlite" core_pkgs
-
-    # these are typically present on macOS, but check anyway
-    have file        || notes+=("file not found (unexpected on macOS).")
     have strings     || add_unique "binutils" core_pkgs
-    have xxd         || notes+=("xxd not found: install vim or ensure xxd is on PATH (usually present).")
 
     if ! have imgcat; then
       notes+=("imgcat not found: enable iTerm2 Shell Integration (best inline image/PDF-frame previews).")
     fi
 
-    # ---- Good extras (based on your MIME list) ----
+    # ---- Extras ----
     have cabextract  || add_unique "cabextract" extra_pkgs
     have msiextract  || add_unique "msitools" extra_pkgs
     have readpst     || add_unique "libpst" extra_pkgs
@@ -171,7 +161,7 @@ print_install_suggestions_and_exit() {
     exit 0
 
   else
-    # Pop!_OS / Ubuntu packages
+    # ---- Core (Pop!_OS / apt) ----
     have chafa       || add_unique "chafa" core_pkgs
     have ffprobe     || add_unique "ffmpeg" core_pkgs
     have mediainfo   || add_unique "mediainfo" core_pkgs
@@ -199,10 +189,10 @@ print_install_suggestions_and_exit() {
       notes+=("imgcat not found: optional for iTerm2 inline images. chafa covers images without imgcat.")
     fi
 
-    # Extras
+    # ---- Extras (Pop!_OS / apt) ----
     have cabextract  || add_unique "cabextract" extra_pkgs
     have msiextract  || add_unique "msitools" extra_pkgs
-    have readpst     || add_unique "libpst-utils" extra_pkgs
+    have readpst     || add_unique "pst-utils" extra_pkgs
     have ripmime     || add_unique "ripmime" extra_pkgs
     have munpack     || add_unique "mpack" extra_pkgs
     have formail     || add_unique "procmail" extra_pkgs
@@ -365,7 +355,6 @@ preview_vault_file_centered() {
       ;;
 
     application/pdf)
-      # lightweight textual peek by default
       if have pdfinfo; then
         pdfinfo -- "$path" | head -n 20
       fi
@@ -430,7 +419,7 @@ preview_vault_file_centered() {
         readpst -D -o /dev/null -- "$path" 2>/dev/null | head -n 40 || true
         return 0
       fi
-      echo "(preview skipped: install libpst-utils / libpst)"
+      echo "(preview skipped: install pst-utils)"
       ;;
 
     message/rfc822|multipart/*|application/mbox)
