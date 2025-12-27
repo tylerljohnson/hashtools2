@@ -13,8 +13,7 @@
 # Strictness:
 #   - Exactly ONE positional <path> is required.
 #   - Unknown options are errors.
-#   - Invalid option values are errors (e.g., non-integer widths, invalid mime strings).
-#
+#   - Invalid option values are errors.
 
 set -euo pipefail
 
@@ -52,9 +51,8 @@ die() { echo "ERROR: $*" >&2; usage; exit 2; }
 
 require_value() {
   local opt="$1"
-  [[ $# -ge 2 ]] || die "$opt requires a value"
-  local val="$2"
-  [[ -n "$val" ]] || die "$opt requires a non-empty value"
+  local val="${2-}"
+  [[ -n "$val" ]] || die "$opt requires a value"
   [[ "$val" != -* ]] || die "$opt value looks like an option: '$val'"
 }
 
@@ -67,8 +65,12 @@ require_int_ge() {
 normalize_and_validate_mime() {
   local m="$1"
   m="${m,,}" # lowercase
-  # Basic MIME validation: type/subtype with common token chars
-  if [[ ! "$m" =~ ^[a-z0-9][a-z0-9!#\$&\^_.+-]*/[a-z0-9][a-z0-9!#\$&\^_.+-]*$ ]]; then
+
+  # Put regex in a variable so special chars like '&' are not parsed by the shell.
+  # Accepts: type/subtype where each token is a typical MIME token charset.
+  local re='^[a-z0-9][a-z0-9!#$&^_.+-]*/[a-z0-9][a-z0-9!#$&^_.+-]*$'
+
+  if [[ ! "$m" =~ $re ]]; then
     die "--mime value is not a valid mime-type string: '$1'"
   fi
   printf "%s" "$m"
@@ -87,38 +89,32 @@ while [[ $# -gt 0 ]]; do
         require_value "--mime" "${2-}"
         MIME="$(normalize_and_validate_mime "$2")"
         shift 2
-        continue
         ;;
       --center)
         CENTER=true
         shift
-        continue
         ;;
       --width-third)
         WIDTH_THIRD=true
         shift
-        continue
         ;;
       --max-width)
         require_value "--max-width" "${2-}"
         require_int_ge "--max-width" "$2" 20
         MAX_WIDTH="$2"
         shift 2
-        continue
         ;;
       --max-height)
         require_value "--max-height" "${2-}"
         require_int_ge "--max-height" "$2" 4
         MAX_HEIGHT="$2"
         shift 2
-        continue
         ;;
       --text-lines)
         require_value "--text-lines" "${2-}"
         require_int_ge "--text-lines" "$2" 1
         TEXT_LINES="$2"
         shift 2
-        continue
         ;;
       -h|--help)
         usage
@@ -127,7 +123,6 @@ while [[ $# -gt 0 ]]; do
       --)
         end_opts=true
         shift
-        continue
         ;;
       -*)
         die "Unknown option: $1"
@@ -135,7 +130,6 @@ while [[ $# -gt 0 ]]; do
       *)
         positional+=("$1")
         shift
-        continue
         ;;
     esac
   else
@@ -231,7 +225,6 @@ detect_mime() {
 
 if [[ -z "$MIME" ]]; then
   MIME="$(detect_mime "$PATH_ARG")"
-  # detected MIME is best-effort; keep it even if it's octet-stream
 fi
 
 # -------------------------------
