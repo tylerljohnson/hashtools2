@@ -28,3 +28,11 @@ CREATE TABLE hashes
 
 -- start at a known value
 ALTER SEQUENCE hashes_id_seq RESTART WITH 1000001;
+
+CREATE TABLE IF NOT EXISTS base_paths (
+    base_path  TEXT PRIMARY KEY,
+    priority   INTEGER NOT NULL CHECK (priority > 0),
+    is_vault   BOOLEAN NOT NULL DEFAULT FALSE,
+    UNIQUE (priority)
+    );
+

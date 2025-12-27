@@ -4,217 +4,94 @@
 -- This script initializes the central 'hashes' table and its supporting views.
 --
 -- 3. VIEWS:
---    - Organized by file category (files, media, images, videos, audio).
---    - Each category provides three views:
---        * <base>: All records with an 'id' and 'disposition' (primary vs redundant).
---        * <base>_primary: The oldest unique instance of a file (by hash/mime).
---        * <base>_redundant: Duplicate copies that can be safely archived or deleted.
 -- ==============================================================================
 
 -- Drop views defensively
 DROP VIEW IF EXISTS
-    files, files_primary, files_redundant,
-    media, media_primary, media_redundant,
-    images, images_primary, images_redundant,
-    videos, videos_primary, videos_redundant,
-    audio, audio_primary, audio_redundant,
+    files
     CASCADE;
 
--- Base: files (all MIME types)
 CREATE OR REPLACE VIEW files AS
-WITH ranked AS (SELECT id,
-                       hash,
-                       mime_type,
-                       last_modified,
-                       file_size                                    AS length,
-                       base_path,
-                       file_path,
-                       full_path,
-                       DENSE_RANK() OVER (ORDER BY hash, mime_type) AS group_num,
-                       ROW_NUMBER() OVER (
-                           PARTITION BY hash, mime_type
-                           ORDER BY last_modified ASC, id ASC
-                           )                                        AS rn,
-                       COUNT(*) OVER (PARTITION BY hash, mime_type) AS grp_size
-                FROM hashes)
-SELECT id,
-       group_num,
-       hash,
-       last_modified,
-       mime_type,
-       length,
-       base_path,
-       file_path,
-       full_path,
-       CASE WHEN rn = 1 THEN 'primary' ELSE 'redundant' END AS disposition
+WITH joined AS (
+    SELECT
+        h.id,
+        h.hash,
+        h.mime_type,
+        h.last_modified,
+        h.file_size AS length,
+        h.base_path,
+        h.file_path,
+        h.full_path,
+        bp.priority,
+        bp.is_vault
+    FROM hashes h
+             JOIN base_paths bp
+                  ON bp.base_path = h.base_path
+),
+     ranked AS (
+         SELECT
+             *,
+             DENSE_RANK() OVER (ORDER BY hash, mime_type) AS group_num,
+             ROW_NUMBER() OVER (
+                 PARTITION BY hash, mime_type
+                 ORDER BY last_modified ASC, priority ASC, id ASC
+                 ) AS rn,
+             COUNT(*) OVER (PARTITION BY hash, mime_type) AS grp_size
+         FROM joined
+     )
+SELECT
+    id,
+    group_num,
+    hash,
+    last_modified,
+    mime_type,
+    length,
+    base_path,
+    file_path,
+    full_path,
+    is_vault,
+    priority,
+    CASE WHEN rn = 1 THEN 'primary' ELSE 'redundant' END AS disposition
 FROM ranked;
 
-CREATE OR REPLACE VIEW files_primary AS
-SELECT *
-FROM files
-WHERE disposition = 'primary';
-
-CREATE OR REPLACE VIEW files_redundant AS
-SELECT *
-FROM files
-WHERE disposition = 'redundant';
-
--- Base: media (image/% OR video/% OR audio/%)
-CREATE OR REPLACE VIEW media AS
-WITH ranked AS (SELECT id,
-                       hash,
-                       mime_type,
-                       last_modified,
-                       file_size                                    AS length,
-                       base_path,
-                       file_path,
-                       full_path,
-                       DENSE_RANK() OVER (ORDER BY hash, mime_type) AS group_num,
-                       ROW_NUMBER() OVER (
-                           PARTITION BY hash, mime_type
-                           ORDER BY last_modified ASC, id ASC
-                           )                                        AS rn,
-                       COUNT(*) OVER (PARTITION BY hash, mime_type) AS grp_size
-                FROM hashes
-                WHERE mime_type LIKE ANY (ARRAY ['image/%','video/%','audio/%']))
-SELECT id,
-       group_num,
-       hash,
-       last_modified,
-       mime_type,
-       length,
-       base_path,
-       file_path,
-       full_path,
-       CASE WHEN rn = 1 THEN 'primary' ELSE 'redundant' END AS disposition
-FROM ranked;
-
-CREATE OR REPLACE VIEW media_primary AS
-SELECT *
-FROM media
-WHERE disposition = 'primary';
-
-CREATE OR REPLACE VIEW media_redundant AS
-SELECT *
-FROM media
-WHERE disposition = 'redundant';
-
--- Base: images (image/%)
-CREATE OR REPLACE VIEW images AS
-WITH ranked AS (SELECT id,
-                       hash,
-                       mime_type,
-                       last_modified,
-                       file_size                                    AS length,
-                       base_path,
-                       file_path,
-                       full_path,
-                       DENSE_RANK() OVER (ORDER BY hash, mime_type) AS group_num,
-                       ROW_NUMBER() OVER (
-                           PARTITION BY hash, mime_type
-                           ORDER BY last_modified ASC, id ASC
-                           )                                        AS rn,
-                       COUNT(*) OVER (PARTITION BY hash, mime_type) AS grp_size
-                FROM hashes
-                WHERE mime_type LIKE 'image/%')
-SELECT id,
-       group_num,
-       hash,
-       last_modified,
-       mime_type,
-       length,
-       base_path,
-       file_path,
-       full_path,
-       CASE WHEN rn = 1 THEN 'primary' ELSE 'redundant' END AS disposition
-FROM ranked;
-
-CREATE OR REPLACE VIEW images_primary AS
-SELECT *
-FROM images
-WHERE disposition = 'primary';
-
-CREATE OR REPLACE VIEW images_redundant AS
-SELECT *
-FROM images
-WHERE disposition = 'redundant';
-
--- Base: videos (video/%)
-CREATE OR REPLACE VIEW videos AS
-WITH ranked AS (SELECT id,
-                       hash,
-                       mime_type,
-                       last_modified,
-                       file_size                                    AS length,
-                       base_path,
-                       file_path,
-                       full_path,
-                       DENSE_RANK() OVER (ORDER BY hash, mime_type) AS group_num,
-                       ROW_NUMBER() OVER (
-                           PARTITION BY hash, mime_type
-                           ORDER BY last_modified ASC, id ASC
-                           )                                        AS rn,
-                       COUNT(*) OVER (PARTITION BY hash, mime_type) AS grp_size
-                FROM hashes
-                WHERE mime_type LIKE 'video/%')
-SELECT id,
-       group_num,
-       hash,
-       last_modified,
-       mime_type,
-       length,
-       base_path,
-       file_path,
-       full_path,
-       CASE WHEN rn = 1 THEN 'primary' ELSE 'redundant' END AS disposition
-FROM ranked;
-
-CREATE OR REPLACE VIEW videos_primary AS
-SELECT *
-FROM videos
-WHERE disposition = 'primary';
-
-CREATE OR REPLACE VIEW videos_redundant AS
-SELECT *
-FROM videos
-WHERE disposition = 'redundant';
-
--- Base: audio (audio/%)
-CREATE OR REPLACE VIEW audio AS
-WITH ranked AS (SELECT id,
-                       hash,
-                       mime_type,
-                       last_modified,
-                       file_size                                    AS length,
-                       base_path,
-                       file_path,
-                       full_path,
-                       DENSE_RANK() OVER (ORDER BY hash, mime_type) AS group_num,
-                       ROW_NUMBER() OVER (
-                           PARTITION BY hash, mime_type
-                           ORDER BY last_modified ASC, id ASC
-                           )                                        AS rn,
-                       COUNT(*) OVER (PARTITION BY hash, mime_type) AS grp_size
-                FROM hashes
-                WHERE mime_type LIKE 'audio/%')
-SELECT id,
-       group_num,
-       hash,
-       last_modified,
-       mime_type,
-       length,
-       base_path,
-       file_path,
-       full_path,
-       CASE WHEN rn = 1 THEN 'primary' ELSE 'redundant' END AS disposition
-FROM ranked;
-
-CREATE OR REPLACE VIEW audio_primary AS
-SELECT *
-FROM audio
-WHERE disposition = 'primary';
-
-CREATE OR REPLACE VIEW audio_redundant AS
-SELECT *
-FROM audio
-WHERE disposition = 'redundant';
+-- vault timestamp drift work-queue
+CREATE OR REPLACE VIEW vault_timestamp_drift AS
+WITH joined AS (
+    SELECT h.*, bp.is_vault, bp.priority
+    FROM hashes h
+             JOIN base_paths bp USING (base_path)
+),
+     oldest AS (
+         SELECT DISTINCT ON (hash, mime_type)
+             hash, mime_type,
+             id AS oldest_id,
+             full_path AS oldest_full_path,
+             last_modified AS oldest_last_modified,
+             is_vault AS oldest_is_vault
+         FROM joined
+         ORDER BY hash, mime_type, last_modified ASC, priority ASC, id ASC
+     ),
+     vault_pick AS (
+         SELECT DISTINCT ON (hash, mime_type)
+             hash, mime_type,
+             id AS vault_id,
+             full_path AS vault_full_path,
+             last_modified AS vault_last_modified,
+             priority AS vault_priority
+         FROM joined
+         WHERE is_vault
+         ORDER BY hash, mime_type, priority ASC, id ASC
+     )
+SELECT
+    o.hash,
+    o.mime_type,
+    o.oldest_full_path,
+    o.oldest_last_modified AS target_last_modified,
+    v.vault_id,
+    v.vault_full_path,
+    v.vault_last_modified,
+    (EXTRACT(EPOCH FROM (v.vault_last_modified - o.oldest_last_modified)))::bigint AS drift_seconds
+FROM oldest o
+         JOIN vault_pick v USING (hash, mime_type)
+WHERE o.oldest_is_vault = FALSE
+  AND v.vault_last_modified > o.oldest_last_modified;
