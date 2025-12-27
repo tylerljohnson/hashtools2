@@ -161,7 +161,7 @@ print_install_suggestions_and_exit() {
     exit 0
 
   else
-    # ---- Core (Pop!_OS / apt) ----
+    # ---- Core (Pop!_OS / nala) ----
     have chafa       || add_unique "chafa" core_pkgs
     have ffprobe     || add_unique "ffmpeg" core_pkgs
     have mediainfo   || add_unique "mediainfo" core_pkgs
@@ -189,7 +189,7 @@ print_install_suggestions_and_exit() {
       notes+=("imgcat not found: optional for iTerm2 inline images. chafa covers images without imgcat.")
     fi
 
-    # ---- Extras (Pop!_OS / apt) ----
+    # ---- Extras (Pop!_OS / nala) ----
     have cabextract  || add_unique "cabextract" extra_pkgs
     have msiextract  || add_unique "msitools" extra_pkgs
     have readpst     || add_unique "pst-utils" extra_pkgs
@@ -207,17 +207,17 @@ print_install_suggestions_and_exit() {
     fi
 
     if ((${#core_pkgs[@]} > 0)); then
-      echo "Recommended installs (Pop!_OS / apt) - Core:"
-      echo "  sudo apt update && sudo apt install ${core_pkgs[*]}"
+      echo "Recommended installs (Pop!_OS / nala) - Core:"
+      echo "  sudo nala update && sudo nala install ${core_pkgs[*]}"
     else
-      echo "Recommended installs (Pop!_OS / apt) - Core: (none missing)"
+      echo "Recommended installs (Pop!_OS / nala) - Core: (none missing)"
     fi
 
     if ((${#extra_pkgs[@]} > 0)); then
-      echo "Recommended installs (Pop!_OS / apt) - Extras:"
-      echo "  sudo apt update && sudo apt install ${extra_pkgs[*]}"
+      echo "Recommended installs (Pop!_OS / nala) - Extras:"
+      echo "  sudo nala update && sudo nala install ${extra_pkgs[*]}"
     else
-      echo "Recommended installs (Pop!_OS / apt) - Extras: (none missing)"
+      echo "Recommended installs (Pop!_OS / nala) - Extras: (none missing)"
     fi
 
     ((${#notes[@]} > 0)) && printf "%s\n" "${notes[@]}"
