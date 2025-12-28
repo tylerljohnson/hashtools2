@@ -255,11 +255,28 @@ print_text_head() {
   fi
 }
 
+# Source helpers (if present)
+HELPERS="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/preview_helpers.bash"
+if [[ -f "$HELPERS" ]]; then
+  # shellcheck source=/dev/null
+  . "$HELPERS"
+fi
+
 # -------------------------------
 # Preview dispatch
 # -------------------------------
 case "$MIME" in
   image/*)
+    # Prefer QuickLook on macOS to handle many document types as images
+    if quicklook_thumbnail_and_display "$PATH_ARG" "$w" 2>/dev/null; then
+      exit 0
+    fi
+
+    if type display_image >/dev/null 2>&1; then
+      display_image "$PATH_ARG" "$w" | center_pipe
+      exit 0
+    fi
+
     if have imgcat; then
       imgcat --preserve-aspect-ratio --width "$w" "$PATH_ARG" | center_pipe
       exit 0
@@ -276,6 +293,11 @@ case "$MIME" in
     ;;
 
   video/*)
+    if type preview_video_thumbnail >/dev/null 2>&1; then
+      preview_video_thumbnail "$PATH_ARG" "$w" | center_pipe
+      exit 0
+    fi
+
     if have ffprobe; then
       ffprobe --hide_banner --loglevel error \
         --show_entries format=duration,size:stream=index,codec_type,codec_name,width,height,avg_frame_rate \
@@ -289,21 +311,11 @@ case "$MIME" in
     echo "(preview skipped: install ffprobe (ffmpeg) or mediainfo)"
     ;;
 
-  audio/*)
-    if have ffprobe; then
-      ffprobe --hide_banner --loglevel error \
-        --show_entries format=duration,size:stream=index,codec_type,codec_name,channels,sample_rate,bit_rate \
-        --of default=nw=1 -- "$PATH_ARG" 2>/dev/null | head -n 25 || true
-      exit 0
-    fi
-    if have mediainfo; then
-      mediainfo -- "$PATH_ARG" 2>/dev/null | head -n 25 || true
-      exit 0
-    fi
-    echo "(preview skipped: install ffprobe (ffmpeg) or mediainfo)"
-    ;;
-
   application/pdf)
+    if type quicklook_thumbnail_and_display >/dev/null 2>&1; then
+      quicklook_thumbnail_and_display "$PATH_ARG" "$w" 2>/dev/null && exit 0
+    fi
+
     if have pdfinfo; then
       pdfinfo -- "$PATH_ARG" 2>/dev/null | head -n 20 || true
     fi
@@ -344,6 +356,11 @@ case "$MIME" in
     ;;
 
   application/zip|application/java-archive|application/vnd.android.package-archive|application/epub+zip)
+    if type list_archive_contents >/dev/null 2>&1; then
+      list_archive_contents "$PATH_ARG" 60
+      exit 0
+    fi
+
     if have unzip; then
       unzip -l -- "$PATH_ARG" 2>/dev/null | head -n 40 || true
       exit 0
@@ -356,6 +373,11 @@ case "$MIME" in
     ;;
 
   application/x-7z-compressed|application/x-rar-compressed|application/x-tar|application/gzip|application/x-bzip2|application/x-xz|application/x-lzip|application/x-compress|application/x-cpio|application/x-gtar|application/x-archive|application/zlib)
+    if type list_archive_contents >/dev/null 2>&1; then
+      list_archive_contents "$PATH_ARG" 60
+      exit 0
+    fi
+
     if have 7z; then
       7z l -- "$PATH_ARG" 2>/dev/null | head -n 60 || true
       exit 0
