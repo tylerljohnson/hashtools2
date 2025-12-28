@@ -58,12 +58,29 @@ Options:
 EOF
 }
 
+# Arg parsing with validation for required option arguments
 while [[ $# -gt 0 ]]; do
   case "$1" in
-    --host)   PGHOST="$2"; shift 2;;
-    --port)   PGPORT="$2"; shift 2;;
-    --user)   PGUSER="$2"; shift 2;;
-    --db)     PGDATABASE="$2"; shift 2;;
+    --host)
+      if [[ -z "${2:-}" || "${2:0:1}" = "-" ]]; then
+        echo "ERROR: --host requires an argument" >&2; usage; exit 2
+      fi
+      PGHOST="$2"; shift 2;;
+    --port)
+      if [[ -z "${2:-}" || "${2:0:1}" = "-" ]]; then
+        echo "ERROR: --port requires an argument" >&2; usage; exit 2
+      fi
+      PGPORT="$2"; shift 2;;
+    --user)
+      if [[ -z "${2:-}" || "${2:0:1}" = "-" ]]; then
+        echo "ERROR: --user requires an argument" >&2; usage; exit 2
+      fi
+      PGUSER="$2"; shift 2;;
+    --db)
+      if [[ -z "${2:-}" || "${2:0:1}" = "-" ]]; then
+        echo "ERROR: --db requires an argument" >&2; usage; exit 2
+      fi
+      PGDATABASE="$2"; shift 2;;
     --commit) COMMIT=true; shift;;
     --delete) FORCE_DELETE=true; shift;;
     --install-tools) INSTALL_TOOLS=true; shift;;
@@ -78,7 +95,7 @@ IS_MAC=false
 [[ "${OSTYPE:-}" == darwin* ]] && IS_MAC=true
 
 # MUST run first (and exit) if requested
-if $INSTALL_TOOLS; then
+if [ "${INSTALL_TOOLS}" = true ]; then
   if [[ -x "$CHECK_TOOLCHAIN" ]]; then
     "$CHECK_TOOLCHAIN"
     exit 0
@@ -87,8 +104,13 @@ if $INSTALL_TOOLS; then
   exit 1
 fi
 
-if [[ ! -x "$PREVIEW" ]]; then
-  echo "ERROR: missing executable: $PREVIEW" >&2
+# Prefer to run preview script directly if executable, otherwise fall back to bash <file>
+if [[ -x "$PREVIEW" ]]; then
+  PREVIEW_CMD=("$PREVIEW")
+elif [[ -f "$PREVIEW" ]]; then
+  PREVIEW_CMD=( bash "$PREVIEW" )
+else
+  echo "ERROR: missing preview script: $PREVIEW" >&2
   exit 1
 fi
 
@@ -119,6 +141,7 @@ echo "# commit=$COMMIT delete=$FORCE_DELETE"
 # -------------------------------
 TERM_COLS="$(tput cols 2>/dev/null || echo 120)"
 HALF=$(( (TERM_COLS - 3) / 2 ))
+if (( HALF < 0 )); then HALF=0; fi
 SEP="$(printf '%*s' "$TERM_COLS" '' | tr ' ' '-')"
 
 truncate_to() {
@@ -134,7 +157,11 @@ print_lr() {
   local l r
   l="$(truncate_to "$1" "$HALF")"
   r="$(truncate_to "$2" "$HALF")"
-  printf "%-*s | %s\n" "$HALF" "$l" "$r"
+  if (( HALF > 0 )); then
+    printf "%-*s | %s\n" "$HALF" "$l" "$r"
+  else
+    printf "%s | %s\n" "$l" "$r"
+  fi
 }
 
 # -------------------------------
@@ -144,7 +171,7 @@ touch_mtime() {
   local file="$1"
   local ts="$2"  # "YYYY-MM-DD HH:MM:SS"
 
-  if $IS_MAC; then
+  if [ "${IS_MAC}" = true ]; then
     local t
     t="$(date -j -f '%Y-%m-%d %H:%M:%S' "$ts" '+%Y%m%d%H%M.%S')" || return 1
     touch -t "$t" "$file"
@@ -156,14 +183,14 @@ touch_mtime() {
 trash_or_delete() {
   local file="$1"
 
-  if $FORCE_DELETE; then
-    rm --force -- "$file"
+  if [ "${FORCE_DELETE}" = true ]; then
+    rm -f -- "$file"
     return
   fi
 
-  if $IS_MAC; then
+  if [ "${IS_MAC}" = true ]; then
     mkdir -p "$HOME/.Trash"
-    mv --force -- "$file" "$HOME/.Trash/"
+    mv -f -- "$file" "$HOME/.Trash/"
     return
   fi
 
@@ -172,7 +199,7 @@ trash_or_delete() {
     return
   fi
 
-  rm --force -- "$file"
+  rm -f -- "$file"
 }
 
 run_update_vault_ts() {
@@ -198,7 +225,7 @@ SQL
 # -------------------------------
 # Query rows (TSV)
 # -------------------------------
-TMP="$(mktemp)"
+TMP="$(mktemp 2>/dev/null || mktemp -t vault_timestamp_drift_fix)"
 trap 'rm -f "$TMP"' EXIT
 
 "${PSQL[@]}" <<'SQL' >"$TMP"
@@ -262,7 +289,7 @@ while IFS=$'\t' read -r hash mime oldest_id oldest_full_path target_ts vault_id 
   echo
 
   # Centered vault preview in middle third of the screen
-  "$PREVIEW" --mime "$mime" --center --width-third --max-width 120 --max-height 24 --text-lines 60 "$vault_full_path"
+  "${PREVIEW_CMD[@]}" --mime "$mime" --center --width-third --max-width 120 --max-height 24 --text-lines 60 "$vault_full_path"
   echo
 
   print_lr "OLDEST (non-vault)" "VAULT (canonical)"
@@ -271,7 +298,7 @@ while IFS=$'\t' read -r hash mime oldest_id oldest_full_path target_ts vault_id 
   print_lr "last_modified: $target_ts" "last_modified: $vault_ts"
 
   echo
-  if ! $COMMIT; then
+  if [ "$COMMIT" != true ]; then
     echo "NOTE: preview mode (no changes). Use --commit to apply."
     echo
   fi
@@ -287,7 +314,7 @@ while IFS=$'\t' read -r hash mime oldest_id oldest_full_path target_ts vault_id 
           break
         fi
 
-        if ! $COMMIT; then
+        if [ "$COMMIT" != true ]; then
           echo "PREVIEW: touch vault mtime -> $target_ts"
           echo "PREVIEW: UPDATE hashes SET last_modified='$target_ts' WHERE id=$vault_id"
           break
@@ -301,7 +328,7 @@ while IFS=$'\t' read -r hash mime oldest_id oldest_full_path target_ts vault_id 
         break
         ;;
       2)
-        if ! $COMMIT; then
+        if [ "$COMMIT" != true ]; then
           echo "PREVIEW: remove file -> $oldest_full_path"
           echo "PREVIEW: DELETE FROM hashes WHERE id=$oldest_id"
           break
