@@ -33,46 +33,34 @@ DB_NAME=${PGDATABASE:-tyler}
 # 3. Join them to see which primary files are "missing" from the vault
 #    despite the vault having the data.
 SQL_QUERY=$(cat <<EOF
-WITH joined AS (
-  SELECT h.*, bp.is_vault, bp.priority
-  FROM hashes h
-  JOIN base_paths bp USING (base_path)
-),
-oldest AS (
-  SELECT DISTINCT ON (hash, mime_type)
-    hash, mime_type,
-    id AS oldest_id,
-    full_path AS oldest_full_path,
-    last_modified AS oldest_last_modified,
-    is_vault AS oldest_is_vault
-  FROM joined
-  ORDER BY hash, mime_type, last_modified ASC, priority ASC, id ASC
-),
-vault_pick AS (
-  SELECT DISTINCT ON (hash, mime_type)
-    hash, mime_type,
-    id AS vault_id,
-    full_path AS vault_full_path,
-    last_modified AS vault_last_modified
-  FROM joined
-  WHERE is_vault
-  ORDER BY hash, mime_type, priority ASC, id ASC
+WITH vault_hashes AS (
+    SELECT DISTINCT hash
+    FROM files
+    WHERE base_path = '$VAULT_BASE'
 )
 SELECT
-  o.hash,
-  o.mime_type,
-  o.oldest_id,
-  o.oldest_full_path,
-  to_char(o.oldest_last_modified, 'YYYY-MM-DD HH24:MI:SS') AS target_last_modified,
-  v.vault_id,
-  v.vault_full_path,
-  to_char(v.vault_last_modified, 'YYYY-MM-DD HH24:MI:SS') AS vault_last_modified,
-  (EXTRACT(EPOCH FROM (v.vault_last_modified - o.oldest_last_modified)))::bigint AS drift_seconds
-FROM oldest o
-JOIN vault_pick v USING (hash, mime_type)
-WHERE o.oldest_is_vault = FALSE
-  AND v.vault_last_modified > o.oldest_last_modified
-ORDER BY drift_seconds DESC, o.hash, o.mime_type;
+    ip.hash,
+    ip.mime_type,
+    ip.length as size_bytes,
+    ROUND(EXTRACT(EPOCH FROM (i_vault.last_modified - ip.last_modified)) / 86400.0, 6) AS delta_days,
+    i_vault.id as vault_id,
+    ip.id as primary_id,
+    i_vault.last_modified as vault_last_modified,
+    ip.last_modified as primary_last_modified,
+    i_vault.full_path AS vault_full_path,
+    ip.full_path AS primary_full_path
+FROM
+    images_primary ip
+        JOIN vault_hashes vh ON ip.hash = vh.hash
+        JOIN images i_vault
+             ON i_vault.hash = vh.hash
+                 AND i_vault.base_path = '$VAULT_BASE'
+WHERE
+    ip.base_path <> '$VAULT_BASE'
+  AND (i_vault.last_modified - ip.last_modified) > interval '0'
+ORDER BY
+    EXTRACT(EPOCH FROM (i_vault.last_modified - ip.last_modified))
+;
 EOF
 )
 
