@@ -266,9 +266,10 @@ case "$MIME" in
 
   video/*)
     if have ffprobe; then
-      ffprobe --hide_banner --loglevel error \
-        --show_entries format=duration,size:stream=index,codec_type,codec_name,width,height,avg_frame_rate \
-        --of default=nw=1 -- "$PATH_ARG" | head -n 25
+      # Use single-dash ffprobe options for maximum compatibility across distros.
+      ffprobe -v error \
+        -show_entries format=duration,size:stream=index,codec_type,codec_name,width,height,avg_frame_rate \
+        -of default=nw=1 -- "$PATH_ARG" | head -n 25
       exit 0
     fi
     if have mediainfo; then
@@ -280,9 +281,9 @@ case "$MIME" in
 
   audio/*)
     if have ffprobe; then
-      ffprobe --hide_banner --loglevel error \
-        --show_entries format=duration,size:stream=index,codec_type,codec_name,channels,sample_rate,bit_rate \
-        --of default=nw=1 -- "$PATH_ARG" | head -n 25
+      ffprobe -v error \
+        -show_entries format=duration,size:stream=index,codec_type,codec_name,channels,sample_rate,bit_rate \
+        -of default=nw=1 -- "$PATH_ARG" | head -n 25
       exit 0
     fi
     if have mediainfo; then

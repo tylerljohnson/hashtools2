@@ -8,8 +8,8 @@
 #   vault copy exists, present choices:
 #     1) Make vault inherit the group's oldest last_modified (FS + DB)
 #     2) Remove the non-vault oldest file + delete its DB row
-#     s) Skip (do nothing, continue)
-#     q) Quit (do nothing for this row, exit immediately)
+#     Enter) Skip (do nothing, continue)
+#     Esc/q) Quit (do nothing for this row, exit immediately)
 #
 # Defaults:
 #   host=cooper port=5432 user=tyler db=tyler
@@ -76,6 +76,22 @@ have() { command -v "$1" >/dev/null 2>&1; }
 
 IS_MAC=false
 [[ "${OSTYPE:-}" == darwin* ]] && IS_MAC=true
+
+# Use /dev/tty for interactive input so reads are NOT taken from the TSV file
+TTY_IN="/dev/tty"
+if [[ ! -r "$TTY_IN" ]]; then
+  TTY_IN="/dev/stdin"
+fi
+
+# clear screen helper
+clear_screen() {
+  if have clear; then
+    clear
+  else
+    # ANSI clear screen + home
+    printf '\033[2J\033[H'
+  fi
+}
 
 # MUST run first (and exit) if requested
 if $INSTALL_TOOLS; then
@@ -256,13 +272,12 @@ row_num=0
 while IFS=$'\t' read -r hash mime oldest_id oldest_full_path target_ts vault_id vault_full_path vault_ts drift_seconds; do
   row_num=$((row_num + 1))
 
-  echo
+  clear_screen
   echo "$SEP"
   printf "Row %d  hash=%s  mime=%s  drift_seconds=%s\n" "$row_num" "$hash" "$mime" "$drift_seconds"
   echo
 
-  # Centered vault preview in middle third of the screen
-  "$PREVIEW" --mime "$mime" --center --width-third --max-width 120 --max-height 24 --text-lines 60 "$vault_full_path"
+  "$PREVIEW" --mime "$mime" --center --width-third --max-width 120 --max-height 24 --text-lines 60 -- "$vault_full_path"
   echo
 
   print_lr "OLDEST (non-vault)" "VAULT (canonical)"
@@ -277,8 +292,29 @@ while IFS=$'\t' read -r hash mime oldest_id oldest_full_path target_ts vault_id 
   fi
 
   while true; do
-    printf "Action: [1] vault inherits oldest  [2] remove oldest file+row  [s] skip  [q] quit : "
-    read -r choice
+    printf "Action: [1] vault inherits oldest  [2] remove oldest file+row  [Enter] skip  [Esc/q] quit : "
+
+    # Read one keypress from the terminal.
+    if ! IFS= read -rsn1 choice <"$TTY_IN"; then
+      echo
+      echo "EOF on input; quitting."
+      exit 0
+    fi
+    echo
+
+    # Enter => skip
+    [[ -z "$choice" ]] && choice="s"
+
+    # Esc handling:
+    # - If it is a lone Esc, quit
+    # - If it's an escape sequence (arrows, etc.), ignore and reprompt
+    if [[ "$choice" == $'\e' ]]; then
+      if IFS= read -rsn1 -t 0.05 _next <"$TTY_IN"; then
+        continue
+      fi
+      choice="q"
+    fi
+
     case "$choice" in
       1)
         if [[ ! -e "$vault_full_path" ]]; then
