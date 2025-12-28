@@ -64,7 +64,6 @@ SELECT *
 FROM files
 WHERE disposition = 'redundant';
 
-
 -- vault timestamp drift work-queue
 CREATE OR REPLACE VIEW vault_timestamp_drift AS
 WITH joined AS (
