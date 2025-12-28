@@ -262,7 +262,7 @@ while IFS=$'\t' read -r hash mime oldest_id oldest_full_path target_ts vault_id 
   echo
 
   # Centered vault preview in middle third of the screen
-  "$PREVIEW" --mime "$mime" --path "$vault_full_path" --center --width-third --max-width 120 --max-height 24 --text-lines 60
+  "$PREVIEW" --mime "$mime" --center --width-third --max-width 120 --max-height 24 --text-lines 60 "$vault_full_path"
   echo
 
   print_lr "OLDEST (non-vault)" "VAULT (canonical)"
