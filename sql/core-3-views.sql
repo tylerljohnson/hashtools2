@@ -54,6 +54,17 @@ SELECT
     CASE WHEN rn = 1 THEN 'primary' ELSE 'redundant' END AS disposition
 FROM ranked;
 
+CREATE OR REPLACE VIEW files_primary AS
+SELECT *
+FROM files
+WHERE disposition = 'primary';
+
+CREATE OR REPLACE VIEW files_redundant AS
+SELECT *
+FROM files
+WHERE disposition = 'redundant';
+
+
 -- vault timestamp drift work-queue
 CREATE OR REPLACE VIEW vault_timestamp_drift AS
 WITH joined AS (
