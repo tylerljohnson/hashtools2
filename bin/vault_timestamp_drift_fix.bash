@@ -280,6 +280,16 @@ fi
 # Interactive processing
 # -------------------------------
 row_num=0
+
+# Open a file descriptor for interactive user input from the terminal.
+# If /dev/tty isn't available, fall back to stdin so the script can still work
+# in non-interactive environments (but prompts may not be visible).
+if [[ -e /dev/tty ]]; then
+  exec 3</dev/tty
+else
+  exec 3<&0
+fi
+
 while IFS=$'\t' read -r hash mime oldest_id oldest_full_path target_ts vault_id vault_full_path vault_ts drift_seconds; do
   row_num=$((row_num + 1))
 
@@ -305,7 +315,14 @@ while IFS=$'\t' read -r hash mime oldest_id oldest_full_path target_ts vault_id 
 
   while true; do
     printf "Action: [1] vault inherits oldest  [2] remove oldest file+row  [s] skip  [q] quit : "
-    read -r choice
+    # Read the user's choice from the terminal FD 3 to avoid consuming the TSV input
+    if ! read -r -u 3 choice; then
+      # If read fails (e.g., no TTY), treat as a skip to avoid an infinite loop
+      echo
+      echo "(no interactive input available; skipping)"
+      choice='s'
+    fi
+
     case "$choice" in
       1)
         if [[ ! -e "$vault_full_path" ]]; then
@@ -352,6 +369,8 @@ while IFS=$'\t' read -r hash mime oldest_id oldest_full_path target_ts vault_id 
         ;;
       q|Q)
         echo "Quit (no action taken for this row)."
+        # Close FD 3 before exiting
+        exec 3<&-
         exit 0
         ;;
       *)
@@ -361,6 +380,9 @@ while IFS=$'\t' read -r hash mime oldest_id oldest_full_path target_ts vault_id 
   done
 
 done <"$TMP"
+
+# Close the interactive file descriptor
+exec 3<&-
 
 echo
 echo "Finished."
