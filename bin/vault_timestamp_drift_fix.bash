@@ -19,14 +19,14 @@
 #   Use --commit to actually apply filesystem + DB changes.
 #
 # Tooling:
-#   --install-tools runs check-preferred-toolchain.bash (report mode) and exits.
+#   --install-tools runs preview-tooling.bash (report mode) and exits.
 #
 
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
-CHECK_TOOLCHAIN="${SCRIPT_DIR}/check-preferred-toolchain.bash"
+CHECK_TOOLCHAIN="${SCRIPT_DIR}/preview-tooling.bash"
 PREVIEW="${SCRIPT_DIR}/preview.bash"
 
 # -------------------------------
@@ -53,7 +53,7 @@ Options:
   --db   DB             (default: tyler)
   --commit              actually apply filesystem + DB changes (default: preview only)
   --delete              use rm --force instead of trash when removing files
-  --install-tools       run check-preferred-toolchain.bash (report mode) and exit
+  --install-tools       run preview-tooling.bash (report mode) and exit
   -h|--help             show help
 EOF
 }
