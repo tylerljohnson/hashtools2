@@ -47,6 +47,13 @@ EOF
 have() { command -v "$1" >/dev/null 2>&1; }
 have_bat() { have bat || have batcat; }
 
+# Cache preferred bat command to avoid repeating detection
+BAT_CMD=""
+if have bat; then BAT_CMD=bat
+elif have batcat; then BAT_CMD=batcat
+fi
+
+
 die() { echo "ERROR: $*" >&2; usage; exit 2; }
 
 require_value() {
@@ -64,7 +71,8 @@ require_int_ge() {
 
 normalize_and_validate_mime() {
   local m="$1"
-  m="${m,,}" # lowercase
+  # lowercase in a way that works on macOS / bash 3
+  m="$(printf '%s' "$m" | tr '[:upper:]' '[:lower:]')"
 
   # Put regex in a variable so special chars like '&' are not parsed by the shell.
   # Accepts: type/subtype where each token is a typical MIME token charset.
@@ -83,7 +91,7 @@ positional=()
 end_opts=false
 
 while [[ $# -gt 0 ]]; do
-  if ! $end_opts; then
+  if [ "$end_opts" != true ]; then
     case "$1" in
       --mime)
         require_value "--mime" "${2-}"
@@ -150,9 +158,8 @@ indent_center() {
   cols="$(tput cols 2>/dev/null || echo 120)"
   local pad=$(( (cols - content_width) / 2 ))
   (( pad < 0 )) && pad=0
-  local spaces
-  spaces="$(printf '%*s' "$pad" '')"
-  sed "s/^/${spaces}/"
+  # Use awk to prefix lines robustly (avoids sed quoting pitfalls)
+  awk -v p="$pad" '{ printf("%*s%s\n", p, "", $0) }'
 }
 
 # -------------------------------
@@ -170,14 +177,14 @@ cols="$(tput cols 2>/dev/null || echo 120)"
 w="$MAX_WIDTH"
 h="$MAX_HEIGHT"
 
-if $WIDTH_THIRD; then
+if [ "$WIDTH_THIRD" = true ]; then
   w=$(( cols / 3 ))
   (( w > MAX_WIDTH )) && w="$MAX_WIDTH"
   (( w < 20 )) && w=20
 fi
 
 center_pipe() {
-  if $CENTER; then
+  if [ "$CENTER" = true ]; then
     indent_center "$w"
   else
     cat
@@ -194,12 +201,20 @@ detect_mime() {
     local mt
     mt="$(file --brief --mime-type -- "$file" 2>/dev/null || true)"
     if [[ -n "$mt" ]]; then
-      printf "%s" "${mt,,}"
+      printf '%s' "$(printf '%s' "$mt" | tr '[:upper:]' '[:lower:]')"
       return 0
     fi
   fi
 
-  case "${file##*.}" in
+  # Safely extract extension: handle no-extension and dotfiles
+  local base="${file##*/}"
+  local ext=""
+  if [[ "$base" == *.* && "$base" != .* ]]; then
+    ext="${base##*.}"
+  fi
+  ext="$(printf '%s' "$ext" | tr '[:upper:]' '[:lower:]')"
+
+  case "$ext" in
     jpg|jpeg) echo "image/jpeg" ;;
     png) echo "image/png" ;;
     gif) echo "image/gif" ;;
@@ -233,12 +248,8 @@ fi
 print_text_head() {
   local file="$1"
   local n="$2"
-  if have_bat; then
-    if have bat; then
-      bat --style=plain --paging=never --line-range=1:"$n" -- "$file" 2>/dev/null || head -n "$n" -- "$file" || true
-    else
-      batcat --style=plain --paging=never --line-range=1:"$n" -- "$file" 2>/dev/null || head -n "$n" -- "$file" || true
-    fi
+  if [[ -n "$BAT_CMD" ]]; then
+    "$BAT_CMD" --style=plain --paging=never --line-range=1:"$n" -- "$file" 2>/dev/null || head -n "$n" -- "$file" || true
   else
     head -n "$n" -- "$file" 2>/dev/null || true
   fi
@@ -268,11 +279,11 @@ case "$MIME" in
     if have ffprobe; then
       ffprobe --hide_banner --loglevel error \
         --show_entries format=duration,size:stream=index,codec_type,codec_name,width,height,avg_frame_rate \
-        --of default=nw=1 -- "$PATH_ARG" | head -n 25
+        --of default=nw=1 -- "$PATH_ARG" 2>/dev/null | head -n 25 || true
       exit 0
     fi
     if have mediainfo; then
-      mediainfo -- "$PATH_ARG" | head -n 25
+      mediainfo -- "$PATH_ARG" 2>/dev/null | head -n 25 || true
       exit 0
     fi
     echo "(preview skipped: install ffprobe (ffmpeg) or mediainfo)"
@@ -282,11 +293,11 @@ case "$MIME" in
     if have ffprobe; then
       ffprobe --hide_banner --loglevel error \
         --show_entries format=duration,size:stream=index,codec_type,codec_name,channels,sample_rate,bit_rate \
-        --of default=nw=1 -- "$PATH_ARG" | head -n 25
+        --of default=nw=1 -- "$PATH_ARG" 2>/dev/null | head -n 25 || true
       exit 0
     fi
     if have mediainfo; then
-      mediainfo -- "$PATH_ARG" | head -n 25
+      mediainfo -- "$PATH_ARG" 2>/dev/null | head -n 25 || true
       exit 0
     fi
     echo "(preview skipped: install ffprobe (ffmpeg) or mediainfo)"
@@ -294,18 +305,27 @@ case "$MIME" in
 
   application/pdf)
     if have pdfinfo; then
-      pdfinfo -- "$PATH_ARG" | head -n 20
+      pdfinfo -- "$PATH_ARG" 2>/dev/null | head -n 20 || true
     fi
     if have pdftotext; then
-      pdftotext -f 1 -l 1 -layout -- "$PATH_ARG" - 2>/dev/null | head -n 20
-      exit 0
+      # If pdftotext fails, fall back to text head instead of exiting the script
+      if pdftotext -f 1 -l 1 -layout -- "$PATH_ARG" - 2>/dev/null | head -n 20; then
+        exit 0
+      else
+        print_text_head "$PATH_ARG" "$TEXT_LINES"
+        exit 0
+      fi
     fi
     echo "(preview skipped: install poppler utils)"
     ;;
 
   application/json)
     if have jq; then
-      (head -c 200000 -- "$PATH_ARG" 2>/dev/null || true) | jq . 2>/dev/null | head -n 40
+      if head -c 200000 -- "$PATH_ARG" 2>/dev/null | jq . 2>/dev/null | head -n 40; then
+        :
+      else
+        print_text_head "$PATH_ARG" "$TEXT_LINES"
+      fi
     else
       print_text_head "$PATH_ARG" "$TEXT_LINES"
     fi
@@ -313,7 +333,7 @@ case "$MIME" in
 
   application/xml|application/xhtml+xml|application/xml-dtd|application/rss+xml|application/atom+xml|application/wsdl+xml|application/xslt+xml|application/rdf+xml|image/svg+xml|application/dita+xml|application/smil+xml)
     if have xmllint; then
-      xmllint --format --recover --nocdata --nowarning -- "$PATH_ARG" 2>/dev/null | head -n 40
+      xmllint --format --recover --nocdata --nowarning -- "$PATH_ARG" 2>/dev/null | head -n 40 || true
     else
       print_text_head "$PATH_ARG" "$TEXT_LINES"
     fi
@@ -325,11 +345,11 @@ case "$MIME" in
 
   application/zip|application/java-archive|application/vnd.android.package-archive|application/epub+zip)
     if have unzip; then
-      unzip -l -- "$PATH_ARG" | head -n 40
+      unzip -l -- "$PATH_ARG" 2>/dev/null | head -n 40 || true
       exit 0
     fi
     if have 7z; then
-      7z l -- "$PATH_ARG" | head -n 60
+      7z l -- "$PATH_ARG" 2>/dev/null | head -n 60 || true
       exit 0
     fi
     echo "(preview skipped: install unzip or p7zip)"
@@ -337,11 +357,11 @@ case "$MIME" in
 
   application/x-7z-compressed|application/x-rar-compressed|application/x-tar|application/gzip|application/x-bzip2|application/x-xz|application/x-lzip|application/x-compress|application/x-cpio|application/x-gtar|application/x-archive|application/zlib)
     if have 7z; then
-      7z l -- "$PATH_ARG" | head -n 60
+      7z l -- "$PATH_ARG" 2>/dev/null | head -n 60 || true
       exit 0
     fi
     if [[ "$MIME" == application/x-tar* ]] && have tar; then
-      tar -tf -- "$PATH_ARG" 2>/dev/null | head -n 40
+      tar -tf -- "$PATH_ARG" 2>/dev/null | head -n 40 || true
       exit 0
     fi
     echo "(preview skipped: install p7zip)"
@@ -365,7 +385,7 @@ case "$MIME" in
 
   application/octet-stream|application/x-msdownload|application/x-dosexec|application/x-executable|application/x-mach-o-executable|application/java-vm|application/java-serialized-object)
     if have file; then
-      file --brief --mime-type --mime-encoding -- "$PATH_ARG"
+      file --brief --mime-type --mime-encoding -- "$PATH_ARG" 2>/dev/null || true
     fi
     if have strings; then
       strings -n 8 -- "$PATH_ARG" 2>/dev/null | head -n 30 || true
@@ -374,7 +394,7 @@ case "$MIME" in
 
   *)
     if have file; then
-      file --brief --mime-type --mime-encoding -- "$PATH_ARG"
+      file --brief --mime-type --mime-encoding -- "$PATH_ARG" 2>/dev/null || true
     fi
     print_text_head "$PATH_ARG" "$TEXT_LINES"
     ;;
