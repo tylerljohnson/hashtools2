@@ -44,21 +44,28 @@ IS_MAC=false
 have() { command -v "$1" >/dev/null 2>&1; }
 have_bat() { have bat || have batcat; }
 
+# add_unique: append package name to a named array if not already present.
+# Portable implementation that avoids 'local -n' namerefs so it runs on macOS' bash.
 add_unique() {
-  local pkg="$1"; shift
-  local -n arr="$1"
+  local pkg="$1"
+  local arr_name="$2"
+  local exists=0
   local x
-  for x in "${arr[@]:-}"; do
-    [[ "$x" == "$pkg" ]] && return 0
-  done
-  arr+=("$pkg")
+  # iterate over the array by indirect expansion
+  eval "for x in \"\\${${arr_name}[@]:-}\"; do
+    if [[ \"\$x\" == \"\$pkg\" ]]; then exists=1; break; fi
+  done"
+  if (( exists == 0 )); then
+    # append to named array
+    eval "${arr_name}+=(\"\$pkg\")"
+  fi
 }
 
 core_pkgs=()
 extra_pkgs=()
 notes=()
 
-if $IS_MAC; then
+if [ "$IS_MAC" = true ]; then
   # ---------- Core ----------
   have chafa       || add_unique "chafa" core_pkgs
   have ffprobe     || add_unique "ffmpeg" core_pkgs
@@ -79,7 +86,7 @@ if $IS_MAC; then
   fi
 
   # ---------- Extras ----------
-  if $INCLUDE_EXTRAS; then
+  if [ "$INCLUDE_EXTRAS" = true ]; then
     have cabextract  || add_unique "cabextract" extra_pkgs
     have msiextract  || add_unique "msitools" extra_pkgs
     have readpst     || add_unique "libpst" extra_pkgs
@@ -111,7 +118,7 @@ if $IS_MAC; then
   ((${#extra_pkgs[@]} > 0)) && echo "  Extras: ${extra_pkgs[*]}"
   ((${#notes[@]} > 0)) && printf "%s\n" "${notes[@]}"
 
-  if ! $INSTALL; then
+  if [ "$INSTALL" != true ]; then
     echo
     ((${#core_pkgs[@]} > 0)) && echo "Run: brew install ${core_pkgs[*]}"
     ((${#extra_pkgs[@]} > 0)) && echo "Run: brew install ${extra_pkgs[*]}"
@@ -157,7 +164,7 @@ else
   fi
 
   # ---------- Extras ----------
-  if $INCLUDE_EXTRAS; then
+  if [ "$INCLUDE_EXTRAS" = true ]; then
     have cabextract  || add_unique "cabextract" extra_pkgs
     have msiextract  || add_unique "msitools" extra_pkgs
     have readpst     || add_unique "pst-utils" extra_pkgs
@@ -180,7 +187,7 @@ else
   ((${#extra_pkgs[@]} > 0)) && echo "  Extras: ${extra_pkgs[*]}"
   ((${#notes[@]} > 0)) && printf "%s\n" "${notes[@]}"
 
-  if ! $INSTALL; then
+  if [ "$INSTALL" != true ]; then
     echo
     if [[ "$PM" == "nala" ]]; then
       ((${#core_pkgs[@]} > 0)) && echo "Run: sudo nala update && sudo nala install ${core_pkgs[*]}"
@@ -206,3 +213,4 @@ else
   echo "Done."
   exit 0
 fi
+
