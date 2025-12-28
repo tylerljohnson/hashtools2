@@ -293,6 +293,15 @@ fi
 while IFS=$'\t' read -r hash mime oldest_id oldest_full_path target_ts vault_id vault_full_path vault_ts drift_seconds; do
   row_num=$((row_num + 1))
 
+  # Clear the screen between items (portable)
+  if have clear; then
+    clear
+  elif have tput; then
+    tput clear
+  else
+    printf '\033c'
+  fi
+
   echo
   echo "$SEP"
   printf "Row %d  hash=%s  mime=%s  drift_seconds=%s\n" "$row_num" "$hash" "$mime" "$drift_seconds"
@@ -314,12 +323,17 @@ while IFS=$'\t' read -r hash mime oldest_id oldest_full_path target_ts vault_id 
   fi
 
   while true; do
-    printf "Action: [1] vault inherits oldest  [2] remove oldest file+row  [s] skip  [q] quit : "
+    printf "Action: [1] vault inherits oldest  [2] remove oldest file+row  [s] skip (Enter)  [q] quit : "
     # Read the user's choice from the terminal FD 3 to avoid consuming the TSV input
     if ! read -r -u 3 choice; then
       # If read fails (e.g., no TTY), treat as a skip to avoid an infinite loop
       echo
       echo "(no interactive input available; skipping)"
+      choice='s'
+    fi
+
+    # Treat empty input (just pressing Enter) as 'skip'
+    if [[ -z "${choice:-}" ]]; then
       choice='s'
     fi
 
