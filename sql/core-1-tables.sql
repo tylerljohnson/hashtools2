@@ -29,10 +29,18 @@ CREATE TABLE hashes
 -- start at a known value
 ALTER SEQUENCE hashes_id_seq RESTART WITH 1000001;
 
+-- meta for base paths, which are vaults & what is the priority order
 CREATE TABLE IF NOT EXISTS base_paths (
     base_path  TEXT PRIMARY KEY,
     priority   INTEGER NOT NULL CHECK (priority > 0),
     is_vault   BOOLEAN NOT NULL DEFAULT FALSE,
     UNIQUE (priority)
     );
+
+-- mime type to category mapping
+CREATE TABLE IF NOT EXISTS mime_category (
+   mime_type TEXT PRIMARY KEY,
+   category  TEXT NOT NULL
+);
+
 
