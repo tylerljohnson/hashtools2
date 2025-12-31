@@ -23,6 +23,8 @@ CREATE TABLE hashes
     base_path     TEXT                                                            NOT NULL, -- common root directory (or mount point of device/share)
     file_path     TEXT                                                            NOT NULL, -- relative to base_path
     full_path     TEXT GENERATED ALWAYS AS (base_path || '/' || file_path) STORED NOT NULL, -- absolute path, computed from base_path and file_path
+    file_name     TEXT GENERATED ALWAYS AS (public.file_name_from_path(file_path)) STORED,
+    file_ext      TEXT GENERATED ALWAYS AS (public.file_ext_from_path(file_path)) STORED,
     UNIQUE (full_path)                                                                      -- full_path is required to be unique
 );
 
@@ -38,9 +40,7 @@ CREATE TABLE IF NOT EXISTS base_paths (
     );
 
 -- mime type to category mapping
-CREATE TABLE IF NOT EXISTS mime_category (
+CREATE TABLE IF NOT EXISTS mime_categories (
    mime_type TEXT PRIMARY KEY,
    category  TEXT NOT NULL
 );
-
-

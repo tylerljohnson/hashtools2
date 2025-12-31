@@ -1,4 +1,4 @@
-INSERT INTO mime_category (mime_type, category)
+INSERT INTO mime_categories (mime_type, category)
 VALUES
     ('application/applefile', 'apple_metadata'),
     ('application/applixware', 'document'),

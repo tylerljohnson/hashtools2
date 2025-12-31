@@ -56,6 +56,6 @@ CREATE INDEX IF NOT EXISTS idx_hashes_basepath_window
     ON hashes (base_path, hash, mime_type, last_modified, id);
 
 -- 5) Common access pattern: queries constrained to a specific mime_type
-CREATE INDEX mime_category_category_idx ON mime_category (category);
+CREATE INDEX mime_category_category_idx ON mime_categories (category);
 
 COMMIT;

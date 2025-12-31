@@ -147,6 +147,3 @@ SELECT 'files_view_summary' AS check_name, COUNT(*) FILTER (WHERE disposition = 
        COUNT(*) FILTER (WHERE disposition = 'redundant') AS redundants,
        COUNT(*) AS total_rows
 FROM files;
-
--- End of checks
-```
