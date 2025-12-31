@@ -10,8 +10,9 @@
 --
 -- ==============================================================================
 
-DROP TABLE IF EXISTS hashes CASCADE;
+BEGIN;
 
+DROP TABLE IF EXISTS hashes CASCADE;
 -- this table stores the meta for the pool of files we want to dedupe
 CREATE TABLE hashes
 (
@@ -23,8 +24,8 @@ CREATE TABLE hashes
     base_path     TEXT                                                            NOT NULL, -- common root directory (or mount point of device/share)
     file_path     TEXT                                                            NOT NULL, -- relative to base_path
     full_path     TEXT GENERATED ALWAYS AS (base_path || '/' || file_path) STORED NOT NULL, -- absolute path, computed from base_path and file_path
-    file_name     TEXT GENERATED ALWAYS AS (public.file_name_from_path(file_path)) STORED,
-    file_ext      TEXT GENERATED ALWAYS AS (public.file_ext_from_path(file_path)) STORED,
+    file_name     TEXT GENERATED ALWAYS AS (file_name_from_path(file_path)) STORED,
+    file_ext      TEXT GENERATED ALWAYS AS (file_ext_from_path(file_path)) STORED,
     UNIQUE (full_path)                                                                      -- full_path is required to be unique
 );
 
@@ -32,6 +33,7 @@ CREATE TABLE hashes
 ALTER SEQUENCE hashes_id_seq RESTART WITH 1000001;
 
 -- meta for base paths, which are vaults & what is the priority order
+DROP TABLE IF EXISTS base_paths;
 CREATE TABLE IF NOT EXISTS base_paths (
     base_path  TEXT PRIMARY KEY,
     priority   INTEGER NOT NULL CHECK (priority > 0),
@@ -40,7 +42,10 @@ CREATE TABLE IF NOT EXISTS base_paths (
     );
 
 -- mime type to category mapping
+DROP TABLE IF EXISTS mime_categories;
 CREATE TABLE IF NOT EXISTS mime_categories (
    mime_type TEXT PRIMARY KEY,
    category  TEXT NOT NULL
 );
+
+COMMIT

@@ -6,10 +6,7 @@
 -- 3. VIEWS:
 -- ==============================================================================
 
--- Drop views defensively
-DROP VIEW IF EXISTS
-    files
-    CASCADE;
+BEGIN;
 
 CREATE OR REPLACE VIEW files AS
 WITH joined AS (
@@ -59,6 +56,7 @@ SELECT *
 FROM files
 WHERE disposition = 'primary';
 
+-- redundant files
 CREATE OR REPLACE VIEW files_redundant AS
 SELECT *
 FROM files
@@ -105,3 +103,5 @@ FROM oldest o
          JOIN vault_pick v USING (hash, mime_type)
 WHERE o.oldest_is_vault = FALSE
   AND v.vault_last_modified > o.oldest_last_modified;
+
+COMMIT;
