@@ -1,6 +1,6 @@
--- core-90-data-validation.sql
+-- core-9-data-validation.sql
 -- Read-only health checks and data validations for the hashes/base_paths schema.
--- Run with: psql --set=ON_ERROR_STOP=1 -f core-90-data-validation.sql
+-- Run with: psql --set=ON_ERROR_STOP=1 -f core-9-data-validation.sql
 
 -- 1) base_path ending with '/' or file_path starting with '/'
 SELECT 'base_or_file_path_slash_issues' AS check_name, COUNT(*) AS problem_count
