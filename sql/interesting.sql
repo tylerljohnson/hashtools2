@@ -100,3 +100,14 @@ SELECT
                 END
         END AS file_ext
 FROM files_primary p;
+
+-- find most common mime types
+select mime_type, sum(file_size), count(*) from hashes group by mime_type order by count(*) desc;
+
+-- find most common mime type categories
+
+-- find most common file extensions
+select file_ext, sum(file_size), count(*) from hashes group by file_ext order by count(*) desc;
+
+-- find most common file names
+select file_name, sum(file_size), count(*) from hashes group by file_name order by count(*) desc;
