@@ -12,6 +12,7 @@ CREATE OR REPLACE VIEW files AS
 WITH joined AS (SELECT h.id,
                        h.hash,
                        h.mime_type,
+                       mc.category,
                        h.last_modified,
                        h.file_size,
                        h.base_path,
@@ -22,7 +23,8 @@ WITH joined AS (SELECT h.id,
                        bp.priority,
                        bp.is_vault
                 FROM hashes h
-                         JOIN base_paths bp ON bp.base_path = h.base_path),
+                         JOIN base_paths bp ON bp.base_path = h.base_path
+                         LEFT JOIN mime_categories mc ON mc.mime_type = h.mime_type),
      ranked AS (SELECT *,
                        DENSE_RANK() OVER (ORDER BY hash, mime_type) AS group_num,
                        ROW_NUMBER() OVER (
@@ -35,6 +37,7 @@ SELECT id,
        group_num,
        hash,
        mime_type,
+       category,
        last_modified,
        file_size,
        base_path,
