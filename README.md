@@ -1,161 +1,152 @@
 # hashtools2
 
-A comprehensive file deduplication and management system built in Java. Hashtools2 provides utilities for working with file digests, metadata validation, and duplicate file management through a combination of Java tools and shell scripts integrated with PostgreSQL.
+`hashtools2` generates SHA-1 metadata for directory trees and provides tools to
+inspect metadata, identify duplicate files, and load the results into PostgreSQL
+for analysis.
 
-## Features
+## Requirements
 
-- Generate hash-based metadata files for directories or files
-- Validate existing metadata files
-- Identify and manage duplicate files across storage locations
-- Track primary (original) and redundant (duplicate) copies
-- Special handling for media files (images, videos, audio)
-- Database-backed file tracking and analysis
-- Safe file management operations
+- Java 21 or newer
+- Maven, to build from source
+- PostgreSQL and `psql` for database workflows
 
-## Getting Started
+The Java application uses Picocli 4.7.7, Apache Tika 3.2.3, SLF4J 2.0.17, and
+the PostgreSQL JDBC driver.
 
-### Prerequisites
+## Build
 
-- Java 21 or higher
-- Maven (for building from source)
-
-#### Main dependencies
-- [Picocli 4.7.7](https://picocli.info/) (command-line parsing)
-- [Apache Tika 3.0.0](https://tika.apache.org/) (MIME-type detection)
-- [SLF4J 2.0.7](https://www.slf4j.org/) (logging)
-
-### Building
-
-To build the project, run:
-
-```
+```bash
 mvn clean package
 ```
 
-The resulting JAR will be located at `target/hashtools2.jar`.
+The executable shaded JAR is written to `target/hashtools2.jar`.
 
-## Usage
+## CLI usage
 
-### Java CLI Tool
-
-Run the core Java tool with:
 ```bash
-java -jar target/hashtools2.jar [command] [options]
+java -jar target/hashtools2.jar --help
+java -jar target/hashtools2.jar generate --help
+java -jar target/hashtools2.jar meta --help
 ```
 
-Example commands:
-```bash
-# Generate a metadata file
-java -jar target/hashtools2.jar generate [directory] --output=output.hashes
+Generate metadata for a directory:
 
-# Validate a metadata file
-java -jar target/hashtools2.jar meta validate [options]
+```bash
+java -jar target/hashtools2.jar generate /path/to/directory --output=/tmp/library.meta
 ```
 
-For detailed Java tool usage:
+The root argument must be a directory. If the output file is inside the scanned
+directory, it is excluded from the generated metadata.
+
+Validate and summarize generated metadata:
+
 ```bash
-java -jar hashtools2.jar --help
+java -jar target/hashtools2.jar meta validate /tmp/library.meta
+java -jar target/hashtools2.jar meta summary /tmp/library.meta
 ```
 
-### File Management Workflow
+The `meta` command also provides `split`, `intersect`, `purge`, `view`,
+`select`, `clean`, and `remove` subcommands. Use each command's `--help` before
+using it, especially commands with deletion or copy options.
 
-1. **Generate Hashes**
-   ```bash
-   ./bin/gen-hashes.bash       # Edit script to specify directories
-   ```
+## Metadata format
 
-2. **Load Into Database**
-   ```bash
-   ./bin/load_hashes.bash path/to/output.hashes
-   ```
+Metadata files are UTF-8 tab-separated records with no header:
 
-3. **Check for Duplicates**
-   ```bash
-   ./bin/check-vault-outdated.bash [--vault-base PATH] [--format tsv|json]
-   ```
+| Column | Type | Description |
+| --- | --- | --- |
+| `hash` | String | Lowercase 40-character SHA-1 digest |
+| `lastModified` | String | UTC ISO-8601 instant, such as `2026-09-07T21:30:35Z` |
+| `fileSize` | Long | File size in bytes |
+| `mimeType` | String | Detected MIME type |
+| `basePath` | String | Absolute scan-root path |
+| `filePath` | String | Relative path from `basePath` |
 
-4. **Remove Redundant Files**
-   ```bash
-   # Dry run first
-   ./bin/remove_redundant_files.bash
-   
-   # Actually remove files and update database
-   ./bin/remove_redundant_files.bash --force --sync-db
-   ```
+Tabs, carriage returns, and newlines are not supported in paths. Relative paths
+must be nonempty, cannot start with `/`, and cannot contain `.` or `..` path
+segments. Legacy metadata with local-time timestamps must be regenerated before
+it can pass validation.
 
-### Database Configuration
+## Database setup
 
-Default connection settings (override with environment variables):
-- Host: cooper
-- Database: tyler
-- User: tyler
-- Port: 5432
+The project assumes an empty database. Set the connection variables for the
+shell scripts and `psql` commands:
 
-Environment variables:
-- `PGHOST`
-- `PGUSER`
-- `PGDATABASE`
-- `PGPORT`
+```bash
+export PGHOST=cooper
+export PGPORT=5432
+export PGUSER=tyler
+export PGDATABASE=tyler
+```
 
-## Output File Format
+Create the schema and reference data in this order:
 
-The generated metadata file is a tab-separated values (TSV) file with the following columns:
+```bash
+psql -v ON_ERROR_STOP=1 -f sql/core-1-functions.sql
+psql -v ON_ERROR_STOP=1 -f sql/core-2-tables.sql
+psql -v ON_ERROR_STOP=1 -f sql/core-3-indexes.sql
+psql -v ON_ERROR_STOP=1 -f sql/core-4-views.sql
+psql -v ON_ERROR_STOP=1 -f sql/core-8-load-data-mime_categories.sql
+```
 
-| Column Name   | Type   | Description                                       |
-|---------------|--------|---------------------------------------------------|
-| hash          | String | SHA1 Hash digest (algorithm depends on options)   |
-| lastModified  | String | File last modified instant in UTC ISO-8601 format |
-| size          | Long   | File size in bytes                                |
-| mimeType      | String | MIME type of the file                             |
-| basePath      | String | Full path to the base directory                   |
-| fileName      | String | Relative path (from the basePath) of the file     |
+Load one or more metadata files, then register their base paths and validate the
+resulting data:
 
-Paths containing tabs, carriage returns, or newlines are not supported because
-metadata files use tab-separated records. Relative file paths also cannot contain
-`.` or `..` path segments.
+```bash
+./bin/load_hashes.bash /tmp/library.meta
+psql -v ON_ERROR_STOP=1 -f sql/core-7-load-data-base_paths.sql
+psql -v ON_ERROR_STOP=1 -f sql/core-9-data-validation.sql
+```
 
-## System Components
+The `hashes` table stores the file metadata and enforces lowercase SHA-1 hashes,
+nonnegative file sizes, timezone-aware timestamps, and valid metadata paths.
+Its `full_path` column is generated from `base_path` and `file_path`.
 
-### Java Application
-- `src/main/java/hashtools/` - Main Java source code
-  - `commands/` - CLI command implementations
-  - `models/` - Data models
-  - `processors/` - Core processing logic
-  - `utils/` - Utility classes
-- `src/main/resources/` - Resource files
-- `src/test/java/` - Unit tests
+The available views are:
 
-### Database Structure
+- `files`: all tracked files with duplicate disposition and base-path metadata
+- `files_primary`: the oldest entry for each `(hash, mime_type)` group
+- `files_redundant`: remaining entries in each duplicate group
+- `vault_timestamp_drift`: vault records whose timestamp is newer than the
+  oldest matching copy
 
-#### Core Table
-The `hashes` table stores file metadata and hashes:
-- `id`: Primary key (BIGSERIAL)
-- `hash`: SHA-1 hex (40 characters)
-- `mime_type`: File type
-- `last_modified`: Timestamp
-- `file_size`: Size in bytes
-- `base_path`: Base directory path
-- `file_path`: Relative path from base
-- `full_path`: Generated column (base_path + file_path)
+Most shell scripts use the `PGHOST`, `PGPORT`, `PGUSER`, and `PGDATABASE`
+variables. The Java `db consistency` command currently has separate connection
+configuration in its source and should be reviewed before use.
 
-#### Views
-Organized in three categories per file type:
-- `<type>`: All files of the type
-- `<type>_primary`: Original files
-- `<type>_redundant`: Duplicate files
+## Shell scripts
 
-Available views:
-- `files/*`: All file types
-- `media/*`: All media files (images, videos, audio)
-- `images/*`: Image files only
-- `videos/*`: Video files only
-- `audio/*`: Audio files only
+- `load_hashes.bash`: imports metadata into `hashes`
+- `remove_redundant_files.bash`: reports redundant files by default; `--force`
+  deletes files and `--sync-db` then removes their database rows
+- `purge-dupes-of-vault.bash`: reports duplicates of a fixed vault path; its
+  `--purge --no-dry-run` combination permanently deletes matching files
+- `delete_hashes_from_missing_rows.bash`: removes database rows listed in
+  `missing_rows_*.tsv`; use `--dry-run` first
+- `truncate_hashes_table.bash`: empties the `hashes` table and resets its ID
+  sequence
+- `safe-move.bash`: moves regular files while preserving timestamps and
+  metadata where supported
+- `vault_timestamp_drift_fix.bash` and
+  `update_last_modified_timestamps.bash`: reconcile filesystem and database
+  timestamps
 
-### Shell Scripts
-Located in the `bin/` directory:
-- `gen-hashes.bash`: Generates hash files for directories
-- `load_hashes.bash`: Loads hash files into PostgreSQL
-- `check-vault-outdated.bash`: Identifies redundant vault files
-- `remove_redundant_files.bash`: Safely removes duplicates
-- `safe-move.bash`: Moves files while preserving metadata
-- `truncate_hashes.bash`: Resets the database
+`gen-hashes.bash` contains machine-specific paths and a user-home JAR location;
+edit it before running it. Preview scripts may require optional local tools such
+as `timg`, `ffmpeg`, or `chafa`.
+
+## Safety
+
+Start with dry-run or reporting modes. `meta purge --delete`, `meta select
+--prune`, `remove_redundant_files.bash --force`, and
+`purge-dupes-of-vault.bash --purge --no-dry-run` can permanently remove files.
+Review their output and ensure backups exist before executing them.
+
+## Tests
+
+The project currently has no automated test sources. Build verification runs
+with:
+
+```bash
+mvn test
+```
