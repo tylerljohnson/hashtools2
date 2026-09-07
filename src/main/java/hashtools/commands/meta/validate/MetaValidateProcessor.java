@@ -71,7 +71,7 @@ public class MetaValidateProcessor implements Processor {
     }
 
     private boolean isValidSha1(String s) {
-        return s != null && s.matches("^[a-fA-F0-9]{40}$");
+        return s != null && s.matches("^[a-f0-9]{40}$");
     }
 
     private boolean isLong(String s) {
