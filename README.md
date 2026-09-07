@@ -21,6 +21,27 @@ mvn clean package
 
 The executable shaded JAR is written to `target/hashtools2.jar`.
 
+## Quick start
+
+For an empty database, this sequence builds the application, records one
+directory, initializes PostgreSQL, and imports the resulting metadata:
+
+```bash
+mvn clean package
+java -jar target/hashtools2.jar generate /path/to/directory --output=/tmp/library.meta
+java -jar target/hashtools2.jar meta validate /tmp/library.meta
+
+export PGHOST=cooper PGPORT=5432 PGUSER=tyler PGDATABASE=tyler
+psql -v ON_ERROR_STOP=1 -f sql/core-1-functions.sql
+psql -v ON_ERROR_STOP=1 -f sql/core-2-tables.sql
+psql -v ON_ERROR_STOP=1 -f sql/core-3-indexes.sql
+psql -v ON_ERROR_STOP=1 -f sql/core-4-views.sql
+psql -v ON_ERROR_STOP=1 -f sql/core-8-load-data-mime_categories.sql
+./bin/load_hashes.bash /tmp/library.meta
+psql -v ON_ERROR_STOP=1 -f sql/core-7-load-data-base_paths.sql
+psql -v ON_ERROR_STOP=1 -f sql/core-9-data-validation.sql
+```
+
 ## CLI usage
 
 ```bash
@@ -110,6 +131,15 @@ The available views are:
 - `vault_timestamp_drift`: vault records whose timestamp is newer than the
   oldest matching copy
 
+### Duplicate selection
+
+Duplicates are grouped by the pair `(hash, mime_type)`. Within each group, the
+`files` view orders entries by `last_modified` ascending, then `base_paths`
+`priority` ascending, then `id` ascending. The first row is marked `primary`
+and all remaining rows are marked `redundant`. Lower priority numbers win
+timestamp ties. Identical bytes with different detected MIME types are treated
+as separate groups.
+
 Most shell scripts use the `PGHOST`, `PGPORT`, `PGUSER`, and `PGDATABASE`
 variables. The Java `db consistency` command currently has separate connection
 configuration in its source and should be reviewed before use.
@@ -140,7 +170,15 @@ as `timg`, `ffmpeg`, or `chafa`.
 Start with dry-run or reporting modes. `meta purge --delete`, `meta select
 --prune`, `remove_redundant_files.bash --force`, and
 `purge-dupes-of-vault.bash --purge --no-dry-run` can permanently remove files.
-Review their output and ensure backups exist before executing them.
+Review their output and ensure backups exist before executing them. These tools
+do not provide a transaction spanning both the filesystem and PostgreSQL.
+
+Before any deletion or timestamp-reconciliation operation, create a database
+backup with `pg_dump` and ensure the affected files are covered by a filesystem
+snapshot or separate backup. Keep each command's generated logs and reports:
+they are useful for auditing, but they cannot restore deleted files. Prefer
+`safe-move.bash` or an external quarantine workflow when a reversible step is
+needed.
 
 ## Tests
 
