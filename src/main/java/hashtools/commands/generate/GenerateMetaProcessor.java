@@ -53,9 +53,11 @@ public class GenerateMetaProcessor implements Processor {
             Set<String> includeTypeFilter
     ) {
         boolean toStdout = "-".equals(outputFilePath);
-        Path outputFile = (!toStdout && outputFilePath != null) ? Path.of(outputFilePath) : null;
+        Path outputFile = (!toStdout && outputFilePath != null)
+                ? Path.of(outputFilePath).toAbsolutePath().normalize()
+                : null;
         this.config = new Config(
-            rootDir.toPath(),
+            rootDir.toPath().toAbsolutePath().normalize(),
             outputFile,
             toStdout,
             threadCount,
@@ -87,6 +89,10 @@ public class GenerateMetaProcessor implements Processor {
             Files.walkFileTree(config.rootDir, new SimpleFileVisitor<>() {
                 @Override
                 public FileVisitResult visitFile(Path file, BasicFileAttributes attrs) {
+                    if (isOutputFile(file)) {
+                        skippedCount.incrementAndGet();
+                        return FileVisitResult.CONTINUE;
+                    }
                     if (attrs.isRegularFile()) {
                         String mimeType = detectMimeType(file);
                         String type = mimeType.split("/")[0];
@@ -205,6 +211,11 @@ public class GenerateMetaProcessor implements Processor {
         } catch (Exception e) {
             System.err.printf("ERROR processing %s: %s%n", file, e.getMessage());
         }
+    }
+
+    private boolean isOutputFile(Path file) {
+        return config.outputFile != null
+                && config.outputFile.equals(file.toAbsolutePath().normalize());
     }
 
     private void flushBatch(BufferedWriter w, List<String> batch) throws IOException {
