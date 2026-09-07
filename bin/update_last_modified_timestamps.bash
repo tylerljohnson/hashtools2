@@ -123,8 +123,8 @@ while read -r line || [[ -n "$line" ]]; do
 
         if [ "$FILE_EXISTS" = true ]; then
             if [ "$IS_MAC" = true ]; then
-                MAC_DATE=$(echo "$primary_last_modified" | sed 's/[- : ]//g' | sed 's/\(..\)$/.\1/')
-                if touch -mt "$MAC_DATE" "$vault_full_path" 2>/dev/null; then
+                MAC_DATE=$(TZ=UTC date -j -f '%Y-%m-%dT%H:%M:%SZ' "$primary_last_modified" '+%Y%m%d%H%M.%S')
+                if TZ=UTC touch -mt "$MAC_DATE" "$vault_full_path" 2>/dev/null; then
                     TOUCH_SUCCESS=true
                 fi
             else
@@ -135,7 +135,7 @@ while read -r line || [[ -n "$line" ]]; do
         fi
 
         if [ "$TOUCH_SUCCESS" = true ] || { [ "$FORCE" = true ] && [ "$FILE_EXISTS" = false ]; }; then
-            echo "UPDATE hashes SET last_modified = '$primary_last_modified'::TIMESTAMP WHERE id = $vault_id;" >> "$SQL_FILE"
+            echo "UPDATE hashes SET last_modified = '$primary_last_modified'::TIMESTAMPTZ WHERE id = $vault_id;" >> "$SQL_FILE"
             ((++count_ok))
             if [ "$FILE_EXISTS" = true ]; then
                 echo "[Line $line_num] Updated FS & DB: $vault_full_path"

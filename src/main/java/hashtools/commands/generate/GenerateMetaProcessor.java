@@ -19,8 +19,8 @@ public class GenerateMetaProcessor implements Processor {
     public static final int DEFAULT_BATCH_SIZE   =         50;
     private static final long   PROGRESS_INTERVAL_MS = 1_000;
     private static final double MS_PER_SECOND        = 1_000.0;
-    private static final String TIMESTAMP_PATTERN    = "yyyy-MM-dd'T'HH:mm:ss";
-    private static final DateTimeFormatter TIMESTAMP_FORMAT = DateTimeFormatter.ofPattern(TIMESTAMP_PATTERN);
+    private static final DateTimeFormatter OUTPUT_TIMESTAMP_FORMAT =
+            DateTimeFormatter.ofPattern("yyyyMMdd-HHmmss'Z'").withZone(ZoneOffset.UTC);
 
     private static final String ANSI_CARRIAGE_RETURN = "\r";
     private static final String ANSI_ERASE_LINE      = "\u001B[2K";
@@ -212,7 +212,7 @@ public class GenerateMetaProcessor implements Processor {
         try {
             String mimeType = detectMimeType(file);
             String hash = DigestUtils.hash(file);
-            String lastModified = LocalDateTime.ofInstant(attrs.lastModifiedTime().toInstant(), ZoneId.systemDefault()).format(TIMESTAMP_FORMAT);
+            String lastModified = attrs.lastModifiedTime().toInstant().toString();
             long sizeBytes = attrs.size();
             String basePath = config.rootDir.toAbsolutePath().toString();
             String relativePath = config.rootDir.relativize(file).toString();
@@ -240,7 +240,7 @@ public class GenerateMetaProcessor implements Processor {
     }
 
     private static Path defaultOutputPath() {
-        return Path.of(LocalDateTime.now().format(TIMESTAMP_FORMAT) + META_EXTENSION);
+        return Path.of(OUTPUT_TIMESTAMP_FORMAT.format(Instant.now()) + META_EXTENSION);
     }
 
     private String formatHMS(long ms) {

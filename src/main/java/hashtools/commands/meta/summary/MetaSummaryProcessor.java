@@ -10,8 +10,6 @@ import java.util.*;
 
 public class MetaSummaryProcessor implements Processor {
 
-    private record MetaStats(String hash, LocalDateTime timestamp, long size, String mime) {}
-
     private final List<File> metaFiles;
     public static boolean detail = false;
 
@@ -26,8 +24,8 @@ public class MetaSummaryProcessor implements Processor {
             "GB", 0,
             "TB", 0
     ));
-    private LocalDateTime oldest = null;
-    private LocalDateTime newest = null;
+    private Instant oldest = null;
+    private Instant newest = null;
 
     public MetaSummaryProcessor(List<File> metaFiles) {
         this.metaFiles = metaFiles;
@@ -79,7 +77,7 @@ public class MetaSummaryProcessor implements Processor {
         mimeCounts.put(mime, mimeCounts.getOrDefault(mime, 0) + 1);
 
         try {
-            LocalDateTime ts = LocalDateTime.parse(parts[1]);
+            Instant ts = Instant.parse(parts[1]);
             if (oldest == null || ts.isBefore(oldest)) oldest = ts;
             if (newest == null || ts.isAfter(newest)) newest = ts;
         } catch (DateTimeParseException e) {

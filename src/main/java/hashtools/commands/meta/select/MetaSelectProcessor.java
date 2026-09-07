@@ -8,6 +8,7 @@ import hashtools.viewers.*;
 import java.io.*;
 import java.nio.file.*;
 import java.nio.file.attribute.*;
+import java.time.Instant;
 import java.util.*;
 import java.util.stream.*;
 
@@ -198,7 +199,7 @@ public class MetaSelectProcessor implements Processor {
         MetaItem select(List<MetaItem> group) {
             return group.stream()
                     .sorted(Comparator
-                            .comparing(MetaItem::lastModified)
+                            .comparing((MetaItem item) -> Instant.parse(item.lastModified()))
                             .thenComparing(Comparator.comparing(MetaItem::basePath).reversed())
                             .thenComparing(Comparator.comparing(MetaItem::filePath).reversed()))
                     .findFirst()

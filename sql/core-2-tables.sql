@@ -19,7 +19,7 @@ CREATE TABLE hashes
     id            BIGSERIAL PRIMARY KEY,                                                    -- artificial primary key
     hash          CHAR(40)                                                        NOT NULL CHECK (hash ~ '^[0-9a-f]{40}$'), -- SHA-1 hex, lowercase, of the file contents
     mime_type     TEXT                                                            NOT NULL CHECK (mime_type <> '' AND mime_type = lower(mime_type)), -- MIME type, lowercase
-    last_modified TIMESTAMP                                                       NOT NULL, -- in local time (CST preferred)
+    last_modified TIMESTAMPTZ                                                     NOT NULL, -- UTC instant
     file_size     BIGINT                                                          NOT NULL CHECK (file_size >= 0), -- bytes
     base_path     TEXT                                                            NOT NULL CHECK (base_path <> '' AND base_path !~ E'[\\t\\r\\n]'), -- common root directory (or mount point of device/share)
     file_path     TEXT                                                            NOT NULL CHECK (file_path <> '' AND file_path !~ E'(^/|(^|/)\\.\\.?(/|$)|[\\t\\r\\n])'), -- relative to base_path

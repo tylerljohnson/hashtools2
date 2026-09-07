@@ -169,12 +169,12 @@ print_lr() {
 # -------------------------------
 touch_mtime() {
   local file="$1"
-  local ts="$2"  # "YYYY-MM-DD HH:MM:SS"
+  local ts="$2"  # UTC ISO-8601 timestamp
 
   if [ "${IS_MAC}" = true ]; then
     local t
-    t="$(date -j -f '%Y-%m-%d %H:%M:%S' "$ts" '+%Y%m%d%H%M.%S')" || return 1
-    touch -t "$t" "$file"
+    t="$(TZ=UTC date -j -f '%Y-%m-%dT%H:%M:%SZ' "$ts" '+%Y%m%d%H%M.%S')" || return 1
+    TZ=UTC touch -t "$t" "$file"
   else
     touch --date="$ts" -- "$file"
   fi
@@ -208,7 +208,7 @@ run_update_vault_ts() {
 
   "${PSQL[@]}" --set=vault_id="$vault_id" --set=target_ts="$target_ts" <<'SQL'
 UPDATE hashes
-SET last_modified = :'target_ts'::timestamp
+SET last_modified = :'target_ts'::timestamptz
 WHERE id = :vault_id::bigint;
 SQL
 }
@@ -259,10 +259,10 @@ SELECT
   o.mime_type,
   o.oldest_id,
   o.oldest_full_path,
-  to_char(o.oldest_last_modified, 'YYYY-MM-DD HH24:MI:SS') AS target_last_modified,
+  to_char(o.oldest_last_modified AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS"Z"') AS target_last_modified,
   v.vault_id,
   v.vault_full_path,
-  to_char(v.vault_last_modified, 'YYYY-MM-DD HH24:MI:SS') AS vault_last_modified,
+  to_char(v.vault_last_modified AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS"Z"') AS vault_last_modified,
   (EXTRACT(EPOCH FROM (v.vault_last_modified - o.oldest_last_modified)))::bigint AS drift_seconds
 FROM oldest o
 JOIN vault_pick v USING (hash, mime_type)

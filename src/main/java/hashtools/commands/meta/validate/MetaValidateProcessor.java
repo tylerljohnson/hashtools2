@@ -5,6 +5,8 @@ import hashtools.utils.MetaFileUtils;
 
 import java.io.*;
 import java.nio.file.*;
+import java.time.Instant;
+import java.time.format.DateTimeParseException;
 import java.util.*;
 
 public class MetaValidateProcessor implements Processor {
@@ -44,6 +46,10 @@ public class MetaValidateProcessor implements Processor {
                         printError(file, lineNum, String.format("Invalid file size in column 3 (expected long): '%s'", parts[2]));
                         hasErrors = true;
                     }
+                    if (!isInstant(parts[1])) {
+                        printError(file, lineNum, String.format("Invalid UTC timestamp in column 2: '%s'", parts[1]));
+                        hasErrors = true;
+                    }
                     if (!MetaFileUtils.isValidBasePath(parts[4]) || !MetaFileUtils.isValidFilePath(parts[5])) {
                         printError(file, lineNum, "Invalid base path or relative file path");
                         hasErrors = true;
@@ -73,6 +79,15 @@ public class MetaValidateProcessor implements Processor {
             Long.parseLong(s);
             return true;
         } catch (NumberFormatException e) {
+            return false;
+        }
+    }
+
+    private boolean isInstant(String s) {
+        try {
+            Instant.parse(s);
+            return true;
+        } catch (DateTimeParseException e) {
             return false;
         }
     }

@@ -13,10 +13,6 @@ import java.time.format.*;
 import java.util.*;
 
 public class MetaCleanProcessor implements Processor {
-    private static final String TIMESTAMP_PATTERN = "yyyy-MM-dd'T'HH:mm:ss";
-    private static final DateTimeFormatter fmt =
-            DateTimeFormatter.ofPattern(TIMESTAMP_PATTERN);
-
     private final File[] metaFiles;
     private final boolean dryRun;
     private final boolean verbose;
@@ -135,8 +131,7 @@ public class MetaCleanProcessor implements Processor {
                         it.fileSize(), actualSize);
             }
             FileTime ft = Files.getLastModifiedTime(path);
-            String actualTs = LocalDateTime.ofInstant(ft.toInstant(),
-                    ZoneId.systemDefault()).format(fmt);
+            String actualTs = ft.toInstant().toString();
             if (!actualTs.equals(it.lastModified())) {
                 return String.format("timestamp mismatch (meta=%s,disk=%s)",
                         it.lastModified(), actualTs);

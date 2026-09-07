@@ -6,6 +6,7 @@ import hashtools.utils.*;
 import hashtools.viewers.*;
 
 import java.io.*;
+import java.time.Instant;
 import java.util.*;
 import java.util.stream.*;
 
@@ -71,7 +72,7 @@ public class MetaViewProcessor implements Processor {
 
             // c) Sort & list members
             group.sort(Comparator
-                    .comparing(MetaItem::lastModified)
+                    .comparing((MetaItem item) -> Instant.parse(item.lastModified()))
                     .thenComparing(MetaItem::basePath)
                     .thenComparing(MetaItem::filePath)
             );

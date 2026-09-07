@@ -104,7 +104,7 @@ The generated metadata file is a tab-separated values (TSV) file with the follow
 | Column Name   | Type   | Description                                       |
 |---------------|--------|---------------------------------------------------|
 | hash          | String | SHA1 Hash digest (algorithm depends on options)   |
-| lastModified  | String | File last modified timestamp, yyyy-MM-ddThh:mm:ss |
+| lastModified  | String | File last modified instant in UTC ISO-8601 format |
 | size          | Long   | File size in bytes                                |
 | mimeType      | String | MIME type of the file                             |
 | basePath      | String | Full path to the base directory                   |
