@@ -17,12 +17,12 @@ DROP TABLE IF EXISTS hashes CASCADE;
 CREATE TABLE hashes
 (
     id            BIGSERIAL PRIMARY KEY,                                                    -- artificial primary key
-    hash          CHAR(40)                                                        NOT NULL, -- SHA-1 hex, lowercase, of the file contents
-    mime_type     TEXT                                                            NOT NULL, -- MIME type of the file, lowercase
+    hash          CHAR(40)                                                        NOT NULL CHECK (hash ~ '^[0-9a-f]{40}$'), -- SHA-1 hex, lowercase, of the file contents
+    mime_type     TEXT                                                            NOT NULL CHECK (mime_type <> '' AND mime_type = lower(mime_type)), -- MIME type, lowercase
     last_modified TIMESTAMP                                                       NOT NULL, -- in local time (CST preferred)
-    file_size     BIGINT                                                          NOT NULL, -- bytes
-    base_path     TEXT                                                            NOT NULL, -- common root directory (or mount point of device/share)
-    file_path     TEXT                                                            NOT NULL, -- relative to base_path
+    file_size     BIGINT                                                          NOT NULL CHECK (file_size >= 0), -- bytes
+    base_path     TEXT                                                            NOT NULL CHECK (base_path <> '' AND base_path !~ E'[\\t\\r\\n]'), -- common root directory (or mount point of device/share)
+    file_path     TEXT                                                            NOT NULL CHECK (file_path <> '' AND file_path !~ E'(^/|(^|/)\\.\\.?(/|$)|[\\t\\r\\n])'), -- relative to base_path
     full_path     TEXT GENERATED ALWAYS AS (base_path || '/' || file_path) STORED NOT NULL, -- absolute path, computed from base_path and file_path
     file_name     TEXT GENERATED ALWAYS AS (file_name_from_path(file_path)) STORED,
     file_ext      TEXT GENERATED ALWAYS AS (file_ext_from_path(file_path)) STORED,

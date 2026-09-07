@@ -94,6 +94,11 @@ public class GenerateMetaProcessor implements Processor {
                         return FileVisitResult.CONTINUE;
                     }
                     if (attrs.isRegularFile()) {
+                        if (!MetaFileUtils.isValidFilePath(config.rootDir.relativize(file).toString())) {
+                            System.err.printf("ERROR skipping unsupported path: %s%n", file);
+                            skippedCount.incrementAndGet();
+                            return FileVisitResult.CONTINUE;
+                        }
                         String mimeType = detectMimeType(file);
                         String type = mimeType.split("/")[0];
                         if (config.includeMimeTypesFilters.isEmpty() || config.includeMimeTypesFilters.contains(type)) {
@@ -129,6 +134,10 @@ public class GenerateMetaProcessor implements Processor {
     private void validateAndPrepare() {
         if (!Files.isDirectory(config.rootDir)) {
             System.err.printf("ERROR: %s is not a directory.%n", config.rootDir);
+            System.exit(1);
+        }
+        if (!MetaFileUtils.isValidBasePath(config.rootDir.toString())) {
+            System.err.printf("ERROR: %s cannot be represented in a metadata file.%n", config.rootDir);
             System.exit(1);
         }
         if (config.outputFile == null && !config.toStdout) {

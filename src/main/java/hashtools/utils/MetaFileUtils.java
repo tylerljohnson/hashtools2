@@ -16,6 +16,7 @@ public class MetaFileUtils {
 
     // Converts a FileItem to a TSV formatted string.
     public static String toTsvString(MetaItem r) {
+        validatePathFields(r.basePath(), r.filePath());
         return String.join("\t",
             r.hash(),
             r.lastModified(),
@@ -27,10 +28,11 @@ public class MetaFileUtils {
 
     // Parses a TSV formatted string into a FileItem.
     public static MetaItem fromTsvString(String line) {
-        String[] parts = line.split("\t");
+        String[] parts = line.split("\t", -1);
         if (parts.length != EXPECTED_META_PROPERTIES) {
             throw new IllegalArgumentException("Invalid TSV format: " + line);
         }
+        validatePathFields(parts[4], parts[5]);
         return new MetaItem(parts[0], parts[1], Long.parseLong(parts[2]), parts[3], parts[4], parts[5]);
     }
 
@@ -50,10 +52,11 @@ public class MetaFileUtils {
         try (BufferedReader reader = new BufferedReader(new FileReader(file))) {
             String line;
             while ((line = reader.readLine()) != null) {
-                String[] parts = line.split("\t");
+                String[] parts = line.split("\t", -1);
                 if (parts.length != EXPECTED_META_PROPERTIES) {
                     throw new RuntimeException("Invalid meta file format: " + line);
                 }
+                validatePathFields(parts[4], parts[5]);
                 MetaItem item = new MetaItem(parts[0], parts[1], Long.parseLong(parts[2]), parts[3], parts[4], parts[5]);
                 items.add(item);
             }
@@ -61,6 +64,29 @@ public class MetaFileUtils {
             throw new RuntimeException("Error reading meta file: " + e.getMessage(), e);
         }
         return items;
+    }
+
+    public static boolean isValidBasePath(String basePath) {
+        return basePath != null && !basePath.isEmpty() && !containsTsvControlCharacter(basePath);
+    }
+
+    public static boolean isValidFilePath(String filePath) {
+        return filePath != null
+                && !filePath.isEmpty()
+                && !filePath.startsWith("/")
+                && !containsTsvControlCharacter(filePath)
+                && Arrays.stream(filePath.split("/", -1))
+                .noneMatch(segment -> segment.equals(".") || segment.equals(".."));
+    }
+
+    private static void validatePathFields(String basePath, String filePath) {
+        if (!isValidBasePath(basePath) || !isValidFilePath(filePath)) {
+            throw new IllegalArgumentException("Invalid metadata path fields");
+        }
+    }
+
+    private static boolean containsTsvControlCharacter(String value) {
+        return value.indexOf('\t') >= 0 || value.indexOf('\r') >= 0 || value.indexOf('\n') >= 0;
     }
 
     private static final DateTimeFormatter TIMESTAMP_FORMAT = DateTimeFormatter.ofPattern("yyyyMMdd-HHmmss");

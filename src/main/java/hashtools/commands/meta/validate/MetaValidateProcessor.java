@@ -1,6 +1,7 @@
 package hashtools.commands.meta.validate;
 
 import hashtools.commands.*;
+import hashtools.utils.MetaFileUtils;
 
 import java.io.*;
 import java.nio.file.*;
@@ -41,6 +42,10 @@ public class MetaValidateProcessor implements Processor {
                     }
                     if (!isLong(parts[2])) {
                         printError(file, lineNum, String.format("Invalid file size in column 3 (expected long): '%s'", parts[2]));
+                        hasErrors = true;
+                    }
+                    if (!MetaFileUtils.isValidBasePath(parts[4]) || !MetaFileUtils.isValidFilePath(parts[5])) {
+                        printError(file, lineNum, "Invalid base path or relative file path");
                         hasErrors = true;
                     }
                 }

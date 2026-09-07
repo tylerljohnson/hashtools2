@@ -110,6 +110,10 @@ The generated metadata file is a tab-separated values (TSV) file with the follow
 | basePath      | String | Full path to the base directory                   |
 | fileName      | String | Relative path (from the basePath) of the file     |
 
+Paths containing tabs, carriage returns, or newlines are not supported because
+metadata files use tab-separated records. Relative file paths also cannot contain
+`.` or `..` path segments.
+
 ## System Components
 
 ### Java Application
