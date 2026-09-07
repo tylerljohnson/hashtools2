@@ -5,6 +5,7 @@ import hashtools.commands.Processor;
 import java.io.*;
 import java.nio.file.*;
 import java.sql.*;
+import java.nio.charset.StandardCharsets;
 import java.util.*;
 import java.util.concurrent.*;
 import java.util.concurrent.atomic.*;
@@ -68,7 +69,7 @@ public final class DbConsistencyProcessor implements Processor {
                     System.err.printf("%nFATAL: Base path missing or unmounted: %s%n", pathStr);
                     System.exit(1);
                 }
-                progressMap.put(extractLastSegment(pathStr), new AtomicLong(0));
+                progressMap.put(reportKey(pathStr), new AtomicLong(0));
             }
 
             // Phase 2: Start UI
@@ -126,6 +127,11 @@ public final class DbConsistencyProcessor implements Processor {
         return segment.replaceAll("[^a-zA-Z0-9._-]", "_");
     }
 
+    private static String reportKey(String basePath) {
+        return extractLastSegment(basePath) + "-"
+                + UUID.nameUUIDFromBytes(basePath.getBytes(StandardCharsets.UTF_8));
+    }
+
     private List<String> getUniqueBasePaths(Connection conn) throws SQLException {
         List<String> paths = new ArrayList<>();
         try (Statement stmt = conn.createStatement();
@@ -142,17 +148,17 @@ public final class DbConsistencyProcessor implements Processor {
      */
     private final class CheckTask implements Runnable {
         private final String basePath;
-        private final String segmentName;
+        private final String reportKey;
 
         public CheckTask(String basePath) {
             this.basePath = basePath;
-            this.segmentName = extractLastSegment(basePath);
+            this.reportKey = reportKey(basePath);
         }
 
         @Override
         public void run() {
-            Path tsvPath = Path.of("missing_rows_" + segmentName + ".tsv");
-            AtomicLong counter = progressMap.get(segmentName);
+            Path tsvPath = Path.of("missing_rows_" + reportKey + ".tsv");
+            AtomicLong counter = progressMap.get(reportKey);
 
             // FetchSize + AutoCommit(false) are the keys to cursor-based streaming in Postgres
             try (Connection conn = DriverManager.getConnection(DB_URL, DB_USER, DB_PASS);
@@ -205,7 +211,7 @@ public final class DbConsistencyProcessor implements Processor {
                     }
                 }
             } catch (Exception e) {
-                System.err.printf("%n[%s] Error during I/O loop: %s%n", segmentName, e.getMessage());
+                System.err.printf("%n[%s] Error during I/O loop: %s%n", reportKey, e.getMessage());
             }
         }
     }
