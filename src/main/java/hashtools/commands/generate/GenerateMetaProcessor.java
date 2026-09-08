@@ -24,6 +24,7 @@ public class GenerateMetaProcessor implements Processor {
 
     private static final String ANSI_CARRIAGE_RETURN = "\r";
     private static final String ANSI_ERASE_LINE      = "\u001B[2K";
+    private static final String[] SIZE_UNITS = {"b", "k", "m", "g", "t", "p", "e"};
 
     private static final String STARTUP_FORMAT  = "Starting with %d threads, queue=%d, batch=%d.%n";
     private static final String PROGRESS_FORMAT = "Generating: %,d/%,d (%s) at %.2f f/s, ETA %s";
@@ -40,6 +41,8 @@ public class GenerateMetaProcessor implements Processor {
     private AtomicInteger discoveredCount;
     private AtomicInteger processedCount;
     private AtomicInteger skippedCount;
+    private AtomicInteger startedCount;
+    private final Object progressLogLock = new Object();
     private long startTime;
     private Tika tika;
 
@@ -50,6 +53,7 @@ public class GenerateMetaProcessor implements Processor {
             int queueSize,
             int batchSize,
             boolean silent,
+            boolean progressLogging,
             Set<String> includeTypeFilter
     ) {
         boolean toStdout = "-".equals(outputFilePath);
@@ -64,6 +68,7 @@ public class GenerateMetaProcessor implements Processor {
             queueSize,
             batchSize,
             silent || toStdout,
+            progressLogging,
             includeTypeFilter
         );
     }
@@ -84,7 +89,7 @@ public class GenerateMetaProcessor implements Processor {
             : Files.newBufferedWriter(config.outputFile)) {
 
             startWriter(writer);
-            if (!config.silent && !config.toStdout) startProgressReporter();
+            if (!config.silent && !config.toStdout && !config.progressLogging) startProgressReporter();
 
             Files.walkFileTree(config.rootDir, new SimpleFileVisitor<>() {
                 @Override
@@ -161,6 +166,7 @@ public class GenerateMetaProcessor implements Processor {
         discoveredCount = new AtomicInteger(0);
         processedCount  = new AtomicInteger(0);
         skippedCount    = new AtomicInteger(0);
+        startedCount    = new AtomicInteger(0);
     }
 
     private void printStartupSummary() {
@@ -210,6 +216,7 @@ public class GenerateMetaProcessor implements Processor {
 
     private void processFile(Path file, BasicFileAttributes attrs) {
         try {
+            logProcessingStart(file, attrs.size());
             String mimeType = detectMimeType(file);
             String hash = DigestUtils.hash(file);
             String lastModified = attrs.lastModifiedTime().toInstant().toString();
@@ -220,6 +227,34 @@ public class GenerateMetaProcessor implements Processor {
         } catch (Exception e) {
             System.err.printf("ERROR processing %s: %s%n", file, e.getMessage());
         }
+    }
+
+    private void logProcessingStart(Path file, long sizeBytes) {
+        if (!config.progressLogging) {
+            return;
+        }
+
+        synchronized (progressLogLock) {
+            int count = startedCount.incrementAndGet();
+            PrintStream output = config.toStdout ? System.err : System.out;
+            output.printf("%s %d %s %s %s%n",
+                    Instant.now(), count, rootDirectoryName(), formatSize(sizeBytes), file.getFileName());
+        }
+    }
+
+    private Path rootDirectoryName() {
+        Path name = config.rootDir.getFileName();
+        return name != null ? name : config.rootDir;
+    }
+
+    private String formatSize(long sizeBytes) {
+        long size = sizeBytes;
+        int unitIndex = 0;
+        while (size >= 1_000 && unitIndex < SIZE_UNITS.length - 1) {
+            size /= 1_000;
+            unitIndex++;
+        }
+        return size + SIZE_UNITS[unitIndex];
     }
 
     private boolean isOutputFile(Path file) {
@@ -254,11 +289,12 @@ public class GenerateMetaProcessor implements Processor {
         boolean toStdout;
         int threadCount; int queueSize; int batchSize;
         boolean silent;
+        boolean progressLogging;
         Set<String> includeMimeTypesFilters;
 
         Config(Path rootDir, Path outputFile, boolean toStdout,
                int threadCount, int queueSize,
-               int batchSize, boolean silent, Set<String> includeFilters) {
+               int batchSize, boolean silent, boolean progressLogging, Set<String> includeFilters) {
             this.rootDir = rootDir;
             this.outputFile = outputFile;
             this.toStdout = toStdout;
@@ -266,11 +302,12 @@ public class GenerateMetaProcessor implements Processor {
             this.queueSize = queueSize;
             this.batchSize = batchSize;
             this.silent = silent;
+            this.progressLogging = progressLogging;
             this.includeMimeTypesFilters = includeFilters != null ? includeFilters : Collections.emptySet();
         }
 
         static Config cwd() {
-            return new Config(null, Path.of("."), false, 0,0,0,false, Collections.emptySet());
+            return new Config(null, Path.of("."), false, 0,0,0,false, false, Collections.emptySet());
         }
     }
 

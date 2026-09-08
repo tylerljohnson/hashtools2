@@ -17,6 +17,10 @@ public class GenerateCommand implements Runnable {
             description = "Suppress console output (use --no-silent to enable)")
     private boolean silent;
 
+    @Option(names = "--progress",
+            description = "Log each file when processing starts")
+    private boolean progress;
+
     @Parameters(index = "0",
             description = "Root directory to scan")
     private File rootDir;
@@ -50,6 +54,7 @@ public class GenerateCommand implements Runnable {
                     queueSize,
                     batchSize,
                     silent,
+                    progress,
                     includeTypeFilter
             ).run();
         } catch (Exception e) {
